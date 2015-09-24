@@ -23,18 +23,17 @@ toRevDigits n
 
 -- Double every second number in a list starting on the left.
 doubleEveryOther :: [Integer] -> [Integer]
-doubleEveryOther xs = interleave xs (map (*2) xs)
+doubleEveryOther xs = alternate xs (map (*2) xs)
   where
-    interleave [] bs = bs
-    interleave as [] = as
-    interleave (a:as) (_:bs) = a:interleave bs as
+    alternate [] bs = bs
+    alternate as [] = as
+    alternate (a:as) (_:bs) = a:alternate bs as
 
 -- Exercise 4 -----------------------------------------
 
 -- Calculate the sum of all the digits in every Integer.
 sumDigits :: [Integer] -> Integer
-sumDigits [] = 0
-sumDigits (x:xs) = sum (toRevDigits x) + sumDigits xs
+sumDigits = sum . map (sum . toRevDigits)
 
 -- Exercise 5 -----------------------------------------
 
