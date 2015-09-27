@@ -24,23 +24,55 @@ ex1Tests = [ Test "lastDigit test" testLastDigit
 
 -- Exercise 2 -----------------------------------------
 
+testToRevDigits :: (Integer, [Integer]) -> Bool
+testToRevDigits (n, ds) = toRevDigits n == ds
+
 ex2Tests :: [Test]
-ex2Tests = []
+ex2Tests = [ Test "toRevDigits" testToRevDigits
+             [ (123, [3,2,1]), (1234, [4,3,2,1]), (5, [5])
+             , (10, [0,1]), (0, []), (-17, [])]
+           ]
 
 -- Exercise 3 -----------------------------------------
 
+testDoubleEveryOther :: ([Integer], [Integer]) -> Bool
+testDoubleEveryOther (ns, ms) = doubleEveryOther ns == ms
+
 ex3Tests :: [Test]
-ex3Tests = []
+ex3Tests = [ Test "doubleEveryOther" testDoubleEveryOther
+             [ ([4, 9, 5, 5], [4, 18, 5, 10])
+             , ([1, 2, 3, 4], [1, 4, 3, 8])
+             , ([0, 0], [0, 0])
+             ]
+           ]
 
 -- Exercise 4 -----------------------------------------
 
+testSumDigits :: ([Integer], Integer) -> Bool
+testSumDigits (ns, d) = sumDigits ns == d
+
 ex4Tests :: [Test]
-ex4Tests = []
+ex4Tests = [ Test "sumDigits" testSumDigits
+             [ ([10, 5, 18, 4], 19)
+             , ([12, 34], 10)
+             , ([], 0)]
+           ]
 
 -- Exercise 5 -----------------------------------------
 
+testLuhn :: (Integer, Bool) -> Bool
+testLuhn (n, b) = luhn n == b
+
 ex5Tests :: [Test]
-ex5Tests = []
+ex5Tests = [ Test "luhn" testLuhn
+             [ (5519574098150870, True)
+             , (5338434647685976, True)
+             , (5259808266938862, True)
+             , (5584850814102498, True)
+             , (5546675904618187, True)
+             , (5546675904618186, False)
+             ]
+           ]
 
 -- Exercise 6 -----------------------------------------
 
