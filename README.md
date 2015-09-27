@@ -21,6 +21,7 @@ Now you should be able to run the tests by going
 
 ``` bash
 $ cabal sandbox init
+$ cabal update
 $ cabal install --dep
 $ cabal repl
 *Main> :main
