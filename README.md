@@ -16,3 +16,14 @@ $ sed -i "s/Template/$ME/" src/CIS194/$ME/*
 $ git add src/CIS194/$ME
 $ sed -i "s/Template/$ME/" src/Main.hs
 ```
+
+Now you should be able to run the tests by going
+
+``` bash
+$ cabal sandbox init
+$ cabal install --dep
+$ cabal repl
+*Main> :main
+```
+
+assuming cabal and ghc are installed correctly.  If you have any problems getting that far hit me (Ben) up for help :)
