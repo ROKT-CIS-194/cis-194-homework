@@ -1,8 +1,9 @@
 module Main where
 
-import CIS194.Testing
 import qualified CIS194.Template.HW01Tests as HW01Tests
-import Text.Printf
+import qualified CIS194.Template.HW02Tests as HW02Tests
+import           CIS194.Testing
+import           Text.Printf
 
 doTests :: String -> [Test] -> IO ()
 doTests name tests = do
@@ -13,3 +14,4 @@ doTests name tests = do
 main :: IO ()
 main = do
   doTests "HW01" HW01Tests.allTests
+  doTests "HW02" HW02Tests.allTests
