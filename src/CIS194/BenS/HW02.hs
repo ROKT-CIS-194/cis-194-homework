@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -Wall #-}
 module CIS194.BenS.HW02 where
 
-import Data.Bool
+import Data.List (unfoldr)
 
 -- Mastermind -----------------------------------------
 
@@ -25,25 +25,20 @@ colors = [Red, Green, Blue, Yellow, Orange, Purple]
 
 -- Get the number of exact matches between the actual code and the guess
 exactMatches :: Code -> Code -> Int
-exactMatches xs ys = sum . map (bool 0 1) $ zipWith (==) xs ys
+exactMatches xs ys = sum $ zipWith (\x y -> if x == y then 1 else 0) xs ys
 
 -- Exercise 2 -----------------------------------------
 
 -- For each peg in xs, count how many times is occurs in ys
 countColors :: Code -> [Int]
-countColors = foldr (zipWith (+)) [0, 0, 0, 0, 0, 0] . map code
+countColors code = map (`count` 0) colors
   where
-    code Red    = [1, 0, 0, 0, 0, 0]
-    code Green  = [0, 1, 0, 0, 0, 0]
-    code Blue   = [0, 0, 1, 0, 0, 0]
-    code Yellow = [0, 0, 0, 1, 0, 0]
-    code Orange = [0, 0, 0, 0, 1, 0]
-    code Purple = [0, 0, 0, 0, 0, 1]
+    count = foldr (\p f q -> incr p q . f q) (const id) code
+    incr p q = if p == q then (+1) else id
 
 -- Count number of matches between the actual code and the guess
 matches :: Code -> Code -> Int
-matches secret guess =
-  sum (zipWith min (countColors secret) (countColors guess))
+matches ps qs = sum (zipWith min (countColors ps) (countColors qs))
 
 -- Exercise 3 -----------------------------------------
 
@@ -66,21 +61,25 @@ isConsistent (Move guess exact nonexact) code =
 -- Exercise 5 -----------------------------------------
 
 filterCodes :: Move -> [Code] -> [Code]
-filterCodes move = filter (isConsistent move)
+filterCodes = filter . isConsistent
 
 -- Exercise 6 -----------------------------------------
 
 allCodes :: Int -> [Code]
-allCodes 1 = map (:[]) colors
-allCodes n = concatMap (\cs -> map (\c -> c:cs) colors) (allCodes (n-1))
+allCodes 0 = []
+allCodes 1 = map return colors
+allCodes n = do
+  cs <- allCodes (n-1)
+  c  <- colors
+  return (c:cs)
 
 -- Exercise 7 -----------------------------------------
 
 solve :: Code -> [Move]
-solve secret = reverse $ go [] (allCodes 4)
+solve secret = unfoldr f (allCodes 4)
   where
-    go ms [] = ms
-    go ms (c:cs) = go (m:ms) (filterCodes m cs) where m = getMove secret c
+    f [] = Nothing
+    f (c:cs) = let m = getMove secret c in Just (m, filterCodes m cs)
 
 -- Bonus ----------------------------------------------
 
