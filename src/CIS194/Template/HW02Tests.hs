@@ -4,8 +4,8 @@
 
 module CIS194.Template.HW02Tests where
 
-import           HW02
-import           Testing
+import           CIS194.Template.HW02
+import           CIS194.Testing
 
 
 -- Exercise 1 -----------------------------------------
