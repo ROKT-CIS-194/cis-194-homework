@@ -28,3 +28,7 @@ $ cabal repl
 ```
 
 assuming cabal and ghc are installed correctly.  If you have any problems getting that far hit me (Ben) up for help :)
+
+## Resources
+The lectures make reference to various chapters in the book Real World Haskell, which is available [free,
+online](http://book.realworldhaskell.org/).  There are also links in the lectures themselves.  Stephen Diehl's page [What I Wish I Knew When Learning Haskell](http://dev.stephendiehl.com/hask/) covers a huge range of topics, a lot of them practical and is very useful.  Chris Allen's [Learn Haskell](https://github.com/bitemyapp/learnhaskell) is also very extensive and has a lot of excellent links.
