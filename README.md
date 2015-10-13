@@ -11,8 +11,8 @@ run your own tests from `Main`, but try not to commit that.
 
 ``` bash
 $ mkdir src/CIS194/$ME
-$ cp -n src/CIS194/Template/* src/CIS194/$ME/
-$ sed -i "s/Template/$ME/" src/CIS194/$ME/*
+$ cp -nr src/CIS194/Template/* src/CIS194/$ME/
+$ sed -i "s/Template/$ME/" $(find src/CIS194/$ME/ -type f)
 $ git add src/CIS194/$ME
 $ sed -i "s/Template/$ME/" src/Main.hs
 ```
