@@ -12,11 +12,15 @@ The directory names do have to be capitalised, the error messages should make
 things like this clear.  You'll also have to change `src/Main.hs` to run your
 own tests from `Main`, but try not to commit that.
 
+The `copy-template.sh` script will do the job,
+
 ``` bash
-$ mkdir src/CIS194/$ME
-$ cp -nr src/CIS194/Template/* src/CIS194/$ME/
-$ sed -i "s/Template/$ME/" $(find src/CIS194/$ME/ -type f)
-$ git add src/CIS194/$ME
+$ ./copy-template $ME
+```
+
+and optionally
+
+``` bash
 $ sed -i "s/Template/$ME/" src/Main.hs
 ```
 
