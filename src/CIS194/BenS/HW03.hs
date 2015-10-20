@@ -34,15 +34,30 @@ type State = String -> Int
 -- Exercise 1 -----------------------------------------
 
 extend :: State -> String -> Int -> State
-extend = undefined
+extend st v x = \w -> if v == w then x else st w
 
 empty :: State
-empty = undefined
+empty _ = 0
 
 -- Exercise 2 -----------------------------------------
 
 evalE :: State -> Expression -> Int
-evalE = undefined
+evalE st expr = case expr of
+  Var x -> st x
+  Val n -> n
+  Op e1 bop e2 -> bop' (evalE st e1) (evalE st e2)
+    where
+      boolOp op = \x y -> if x `op` y then 1 else 0
+      bop' = case bop of
+        Plus   -> (+)
+        Minus  -> (-)
+        Times  -> (*)
+        Divide -> div
+        Gt     -> boolOp (>)
+        Ge     -> boolOp (>=)
+        Lt     -> boolOp (<)
+        Le     -> boolOp (<=)
+        Eql    -> boolOp (==)
 
 -- Exercise 3 -----------------------------------------
 
@@ -54,16 +69,33 @@ data DietStatement = DAssign String Expression
                      deriving (Show, Eq)
 
 desugar :: Statement -> DietStatement
-desugar = undefined
+desugar stmt = case stmt of
+  Assign   var expr -> DAssign var expr
+  Incr     var -> DAssign var (Op (Var var) Plus (Val 1))
+  If       test t f -> DIf test (desugar t) (desugar f)
+  While    test body -> DWhile test (desugar body)
+  For      initialise test step body ->
+    desugar $ Sequence initialise (While test (Sequence body step))
+  Sequence a b -> DSequence (desugar a) (desugar b)
+  Skip -> DSkip
 
 
 -- Exercise 4 -----------------------------------------
 
 evalSimple :: State -> DietStatement -> State
-evalSimple = undefined
+evalSimple st stmt = case stmt of
+  DAssign var expr ->
+    extend st var (evalE st expr)
+  DIf test t f ->
+    if evalE st test == 0 then evalSimple st f else evalSimple st t
+  DWhile test body -> go st
+    where go st' = if evalE st' test == 0 then st' else go (evalSimple st' body)
+  DSequence a b ->
+    evalSimple (evalSimple st a) b
+  DSkip -> st
 
 run :: State -> Statement -> State
-run = undefined
+run st stmt = evalSimple st (desugar stmt)
 
 -- Programs -------------------------------------------
 
