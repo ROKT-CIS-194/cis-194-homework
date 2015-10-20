@@ -55,6 +55,7 @@ executable cis194
     CIS194.Lectures.L01Intro
     CIS194.Lectures.L02Lists
     CIS194.Lectures.L03ADTs
+    CIS194.Lectures.L04TypeClasses
     CIS194.Testing
     CIS194.Template.HW01
     CIS194.Template.HW01Tests
@@ -63,6 +64,8 @@ executable cis194
     CIS194.Template.HW03
     CIS194.Template.HW03.Fun
     CIS194.Template.HW03Tests
+    CIS194.Template.HW04
+    CIS194.Template.HW04.Lec
 
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
