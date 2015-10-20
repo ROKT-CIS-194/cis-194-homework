@@ -62,6 +62,7 @@ executable cis194
     CIS194.Template.HW02Tests
     CIS194.Template.HW03
     CIS194.Template.HW03.Fun
+    CIS194.Template.HW03Tests
 
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
