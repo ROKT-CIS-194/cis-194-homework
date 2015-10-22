@@ -5,11 +5,11 @@ module CIS194.NavinK.HW01 where
 
 -- Get the last digit from a number
 lastDigit :: Integer -> Integer
-lastDigit = undefined
+lastDigit n = n `mod` 10
 
 -- Drop the last digit from a number
 dropLastDigit :: Integer -> Integer
-dropLastDigit = undefined
+dropLastDigit n = n `div` 10
 
 -- Exercise 2 -----------------------------------------
 
