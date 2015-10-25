@@ -11,8 +11,7 @@ lastDigit n =  mod n 10
 
 -- Drop the last digit from a number
 dropLastDigit :: Integer -> Integer
-dropLastDigit n = div (n - lastDigit n) 10
-
+dropLastDigit n = div n 10
 
 -- Exercise 2 -----------------------------------------
 
@@ -42,7 +41,7 @@ sumDigits = (foldl' (+) 0) . concat . (map toRevDigits)
 
 -- Validate a credit card number using the above functions.
 luhn :: Integer -> Bool
-luhn n = mod (sumDigits (doubleEveryOther (toRevDigits n))) 10 == 0
+luhn n = (0 ==) $ mod (sumDigits (doubleEveryOther (toRevDigits n))) 10
 
 
 -- Exercise 6 -----------------------------------------
