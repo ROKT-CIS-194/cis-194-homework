@@ -6,6 +6,10 @@ import qualified CIS194.Template.HW03Tests as HW03Tests
 import           CIS194.Testing
 import           Text.Printf
 
+import CIS194.Lectures.L01Intro
+import CIS194.Lectures.L02Lists
+import CIS194.Lectures.L03ADTs
+
 doTests :: String -> [Test] -> IO ()
 doTests name tests = do
   let failures = runTests tests

@@ -1,4 +1,6 @@
 > module CIS194.Lectures.L02Lists where
+>
+> import Prelude hiding (filter, map)
 
 Polymorphism and<br />Functional Programming Paradigms
 ======================================================
@@ -65,9 +67,11 @@ Haskell modules begin with `module Name where`, that means that the
 layout rule is in effect over the declarations in the file. This means
 that the following is no good:
 
-> x :: Int
-> x =
-> 5
+``` {.haskell}
+x :: Int
+x =
+5
+```
 
 The problem is that the `5` is at the same indentation level (zero) as
 other top-level declarations, and so GHC considers it to be a new
@@ -106,7 +110,10 @@ Here is the code that solves the stated problem:
 >          | acc >= 20 = acc
 >          | otherwise = go (acc + x) xs
 
-> sumTo20 [4,9,10,2,8] == 23
+
+``` {.haskell}
+sumTo20 [4,9,10,2,8] == 23
+```
 
 *Parametric* polymorphism
 -------------------------
@@ -642,7 +649,7 @@ This is clearly *not* an improvement!
 
 Consider the following two functions:
 
-> mumble  = (`foldr` []) . ((:).)
+> mumble  = (`listFoldr` []) . ((:).)
 >
 > grumble = zipWith ($) . repeat
 
@@ -650,6 +657,8 @@ Can you figure out what these functions do? What if I told you that they
 are both equivalent to the `map` function. These are great examples of
 how point-free style can be taken too far. For this reason, some people
 refer to it as point-less style.
+
+> listFoldr = foldr :: (b -> a -> a) -> a -> [b] -> a
 
 ------------------------------------------------------------------------
 
