@@ -10,6 +10,7 @@ import CIS194.Lectures.L01Intro
 import CIS194.Lectures.L02Lists
 import CIS194.Lectures.L03ADTs
 import CIS194.Lectures.L04TypeClasses
+import CIS194.Lectures.L05IO
 
 doTests :: String -> [Test] -> IO ()
 doTests name tests = do
