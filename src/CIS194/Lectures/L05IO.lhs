@@ -202,7 +202,7 @@ A slightly larger example
 
 > jabber :: IO ()
 > jabber = do
->   wocky <- readFile "jabberwocky.txt"
+>   wocky <- readFile "resources/HW05/jabberwocky.txt"
 >   let wockylines = drop 2 (lines wocky)  -- discard title
 >   count <- printFirstLines wockylines
 >   putStrLn $ "There are " ++ show count ++ " stanzas in Jabberwocky."
