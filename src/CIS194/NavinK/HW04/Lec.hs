@@ -1,6 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module CIS194.Template.HW04.Lec where
+module CIS194.NavinK.HW04.Lec where
 
 import Data.Functor
 import Data.Monoid

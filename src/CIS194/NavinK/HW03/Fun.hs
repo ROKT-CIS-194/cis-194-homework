@@ -1,4 +1,4 @@
-module CIS194.Template.HW03.Fun where
+module CIS194.NavinK.HW03.Fun where
 
 data Expr = Lit    Bool
           | Var    String
