@@ -1,8 +1,12 @@
 {-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE ExistentialQuantification #-}
 module CIS194.BenS.HW06 where
 
+import           Control.Applicative (liftA3)
+import           Control.Monad       (guard)
 import           Data.Functor
 import           Data.List
+import           Data.Profunctor
 
 -- Exercise 1 -----------------------------------------
 
@@ -77,14 +81,67 @@ minMaxSlow xs = Just (minimum xs, maximum xs)
 
 -- Exercise 9 -----------------------------------------
 
-{- Total Memory in use: 1 MB -}
-minMax :: [Int] -> Maybe (Int, Int)
-minMax = go Nothing
+data FoldF b a
+  = forall x. Fold (b -> x -> x) !x (x -> a)
+
+instance Functor (FoldF b) where
+  fmap f (Fold g s k) = Fold g s (f . k)
+
+instance Profunctor FoldF where
+  dimap g f (Fold ff s k) = Fold (ff . g) s (f . k)
+
+data Fold b a
+  = Pure a
+  | forall x. Ap (FoldF b (x -> a)) !(Fold b x)
+
+instance Functor (Fold b) where
+  fmap f (Pure x) = Pure (f x)
+  fmap f (Ap fm xm) = Ap (fmap (f .) fm) xm
+
+instance Profunctor Fold where
+  dimap _ f (Pure x) = Pure (f x)
+  dimap g f (Ap fm xm) = Ap (dimap g (f .) fm) (lmap g xm)
+
+instance Applicative (Fold b) where
+  pure = Pure
+  Pure f <*> xm = fmap f xm
+  Ap fm xm <*> ym = Ap (fmap uncurry fm) ((,) <$> xm <*> ym)
+
+runFold :: Fold b a -> [b] -> a
+runFold = (finish .) . foldl' step
   where
-    go acc [] = acc
-    go acc (x:xs) = case acc of
-      Nothing      -> go (Just (x, x)) xs
-      Just (lo,hi) -> lo `seq` (hi `seq` go (Just (min lo x, max hi x)) xs)
+    step :: Fold b a -> b -> Fold b a
+    step (Pure x) _ = Pure x
+    step (Ap (Fold f s k) xm) x = Ap (Fold f (f x s) k) (step xm x)
+
+    finish :: Fold b a -> a
+    finish (Pure x) = x
+    finish (Ap (Fold _ s k) xm) = k s (finish xm)
+
+fold :: (b -> a -> a) -> a -> Fold b a
+fold f s = Ap (Fold f s const) (Pure ())
+
+foldMin :: Ord a => Fold a (Maybe a)
+foldMin = fold (\x -> maybe (Just x) (\y -> y `seq` Just (min x y))) Nothing
+
+foldMax :: Ord a => Fold a (Maybe a)
+foldMax = fold (\x -> maybe (Just x) (\y -> y `seq` Just (max x y))) Nothing
+
+foldCount :: Num a => Fold b a
+foldCount = fold (const (+1)) 0
+
+foldSum :: Num a => Fold a a
+foldSum = fold (+) 0
+
+foldAvg :: (Ord a, Fractional a) => Fold a (Maybe a)
+foldAvg = f <$> foldSum <*> foldCount
+  where
+    f total count = (total / count) <$ guard (count > 0)
+
+{- Total Memory in use: 1 MB -}
+minMax :: [Int] -> Maybe (Int, Int, Double)
+minMax =
+  runFold (liftA3 (,,) <$> foldMin <*> foldMax <*> lmap fromIntegral foldAvg)
 
 main :: IO ()
 main = print $ minMaxSlow $ sTake 1000000 $ rand 7666532
