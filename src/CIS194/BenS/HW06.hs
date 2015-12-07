@@ -121,8 +121,8 @@ instance Comonad (Fold b) where
 
 instance ComonadApply (Fold b) where
 
-runFold :: Fold b a -> [b] -> a
-runFold = (extract .) . foldl' stepFold
+feed :: [b] -> Fold b a -> a
+feed xs f = extract (foldl' stepFold f xs)
 
 stepFold :: Fold b a -> b -> Fold b a
 stepFold (Pure x) _ = Pure x
@@ -151,7 +151,7 @@ foldAvg = f <$> foldSum <*> foldCount
 {- Total Memory in use: 1 MB -}
 minMax :: [Int] -> Maybe (Int, Int, Double)
 minMax =
-  runFold (liftA3 (,,) <$> foldMin <*> foldMax <*> lmap fromIntegral foldAvg)
+  flip feed (liftA3 (,,) <$> foldMin <*> foldMax <*> lmap fromIntegral foldAvg)
 
 main :: IO ()
 main = print $ minMaxSlow $ sTake 1000000 $ rand 7666532
