@@ -4,6 +4,7 @@ module CIS194.BenS.HW06 where
 
 import           Control.Applicative (liftA3)
 import           Control.Monad       (guard)
+import           Control.Comonad
 import           Data.Functor
 import           Data.List
 import           Data.Profunctor
@@ -85,10 +86,14 @@ data FoldF b a
   = forall x. Fold (b -> x -> x) !x (x -> a)
 
 instance Functor (FoldF b) where
-  fmap f (Fold g s k) = Fold g s (f . k)
+  fmap f (Fold s x k) = Fold s x (f . k)
 
 instance Profunctor FoldF where
-  dimap g f (Fold ff s k) = Fold (ff . g) s (f . k)
+  dimap g f (Fold s x k) = Fold (s . g) x (f . k)
+
+instance Comonad (FoldF b) where
+  extract (Fold _ x k) = k x
+  duplicate (Fold s x k) = Fold s x (\y -> Fold s y k)
 
 data Fold b a
   = Pure a
@@ -107,19 +112,24 @@ instance Applicative (Fold b) where
   Pure f <*> xm = fmap f xm
   Ap fm xm <*> ym = Ap (fmap uncurry fm) ((,) <$> xm <*> ym)
 
-runFold :: Fold b a -> [b] -> a
-runFold = (finish .) . foldl' step
-  where
-    step :: Fold b a -> b -> Fold b a
-    step (Pure x) _ = Pure x
-    step (Ap (Fold f s k) xm) x = Ap (Fold f (f x s) k) (step xm x)
+instance Comonad (Fold b) where
+  extract (Pure x) = x
+  extract (Ap fm xm) = extract fm (extract xm)
+  duplicate (Pure x) = Pure (Pure x)
+  duplicate (Ap (Fold s x k) xm) =
+    Ap (Fold s x (\y -> Ap (Fold s y k))) (duplicate xm)
 
-    finish :: Fold b a -> a
-    finish (Pure x) = x
-    finish (Ap (Fold _ s k) xm) = k s (finish xm)
+instance ComonadApply (Fold b) where
+
+runFold :: Fold b a -> [b] -> a
+runFold = (extract .) . foldl' stepFold
+
+stepFold :: Fold b a -> b -> Fold b a
+stepFold (Pure x) _ = Pure x
+stepFold (Ap (Fold s x k) xm) b = Ap (Fold s (s b x) k) (stepFold xm b)
 
 fold :: (b -> a -> a) -> a -> Fold b a
-fold f s = Ap (Fold f s const) (Pure ())
+fold s x = Ap (Fold s x const) (Pure ())
 
 foldMin :: Ord a => Fold a (Maybe a)
 foldMin = fold (\x -> maybe (Just x) (\y -> y `seq` Just (min x y))) Nothing
