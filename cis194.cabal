@@ -58,6 +58,7 @@ executable cis194
     CIS194.Lectures.L04TypeClasses
     CIS194.Lectures.L05IO
     CIS194.Lectures.L06Laziness
+    CIS194.Lectures.L07Monads
     CIS194.Testing
     CIS194.Template.HW01
     CIS194.Template.HW01Tests
@@ -72,12 +73,15 @@ executable cis194
     CIS194.Template.HW05.Lec05
     CIS194.Template.HW05.Parser
     CIS194.Template.HW06
+    CIS194.Template.HW07
+    CIS194.Template.HW07.Cards
 
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
 
   -- Other library packages from which modules are imported.
-  build-depends:       base >=4.8 && <4.9, aeson, bytestring, containers
+  build-depends:       base >=4.8 && <4.9, aeson, bytestring, containers,
+                       MonadRandom, random, vector
 
   -- Directories containing source files.
   hs-source-dirs:      src
