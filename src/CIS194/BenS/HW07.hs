@@ -20,43 +20,56 @@ import qualified Data.Vector            as V
 -- Exercise 1 -----------------------------------------
 
 liftM :: Monad m => (a -> b) -> m a -> m b
-liftM = undefined
+liftM f m = m >>= \x -> return (f x)
 
 swapV :: Int -> Int -> Vector a -> Maybe (Vector a)
-swapV = undefined
+swapV i j v = liftM2 (\x y -> v // [(i, y), (j, x)]) (v !? i) (v !? j)
 
 -- Exercise 2 -----------------------------------------
 
 mapM :: Monad m => (a -> m b) -> [a] -> m [b]
-mapM = undefined
+mapM _ [] = return []
+mapM f (x:xs) = f x >>= \y -> mapM f xs >>= \ys -> return (y:ys)
 
 getElts :: [Int] -> Vector a -> Maybe [a]
-getElts = undefined
+getElts is v = mapM (v !?) is
 
 -- Exercise 3 -----------------------------------------
 
 type Rnd a = Rand StdGen a
 
 randomElt :: Vector a -> Rnd (Maybe a)
-randomElt = undefined
+randomElt v = do
+  i <- getRandomR (0, V.length v - 1)
+  return (v ! i <$ guard (not (V.null v)))
 
 -- Exercise 4 -----------------------------------------
 
 randomVec :: Random a => Int -> Rnd (Vector a)
-randomVec = undefined
+randomVec n = liftM V.fromList $ replicateM n getRandom
 
 randomVecR :: Random a => Int -> (a, a) -> Rnd (Vector a)
-randomVecR = undefined
+randomVecR n = liftM V.fromList . replicateM n . getRandomR
 
 -- Exercise 5 -----------------------------------------
 
 shuffle :: Vector a -> Rnd (Vector a)
-shuffle = undefined
+shuffle v' = foldM go v' ixs
+  where
+    ixs = [V.length v' - 1, V.length v' - 2 .. 0]
+    go v i = do
+      j <- getRandomR (0, i)
+      return (v // [(i, v ! j), (j, v ! i)])
 
 -- Exercise 6 -----------------------------------------
 
 partitionAt :: Ord a => Vector a -> Int -> (Vector a, a, Vector a)
-partitionAt = undefined
+partitionAt v i = (V.fromList xs, x, V.fromList ys)
+  where
+    x        = V.unsafeHead bs
+    (as, bs) = V.splitAt i v
+    (xs, ys) = go (V.toList as) . go (V.toList (V.unsafeTail bs)) $ ([], [])
+    go = flip . foldr $ \u (vs, ws) -> if u < x then (u:vs, ws) else (vs, u:ws)
 
 -- Exercise 7 -----------------------------------------
 
@@ -67,36 +80,59 @@ quicksort (x:xs) = quicksort [ y | y <- xs, y < x ]
                    <> (x : quicksort [ y | y <- xs, y >= x ])
 
 qsort :: Ord a => Vector a -> Vector a
-qsort = undefined
+qsort v
+  | V.null v = v
+  | otherwise =
+      qsort xs V.++ V.cons x (qsort ys) where (xs, x, ys) = partitionAt v 0
 
 -- Exercise 8 -----------------------------------------
 
 qsortR :: Ord a => Vector a -> Rnd (Vector a)
-qsortR = undefined
+qsortR = fmap (V.fromList . ($ [])) . go id
+  where
+    go f v
+      | V.null v  = return f
+      | otherwise = do
+          (xs, x, ys) <- partitionAt v <$> getRandomR (0, V.length v - 1)
+          (\g h -> g . (x:) . h) <$> go id xs <*> go id ys
 
 -- Exercise 9 -----------------------------------------
 
 -- Selection
 select :: Ord a => Int -> Vector a -> Rnd (Maybe a)
-select = undefined
+select i v
+  | V.null v = return Nothing
+  | otherwise = do
+      (xs, x, ys) <- partitionAt v <$> getRandomR (0, V.length v - 1)
+      let j = V.length xs
+      case compare i j of
+        LT -> select i xs
+        EQ -> return (Just x)
+        GT -> select (i - j - 1) ys
 
 -- Exercise 10 ----------------------------------------
 
 allCards :: Deck
-allCards = undefined
+allCards = flip Card <$> suits <*> labels
 
 newDeck :: Rnd Deck
-newDeck =  undefined
+newDeck = shuffle allCards
 
 -- Exercise 11 ----------------------------------------
 
 nextCard :: Deck -> Maybe (Card, Deck)
-nextCard = undefined
+nextCard deck =
+  (V.unsafeHead deck, V.unsafeTail deck) <$ guard (not (V.null deck))
 
 -- Exercise 12 ----------------------------------------
 
 getCards :: Int -> Deck -> Maybe ([Card], Deck)
-getCards = undefined
+getCards = (fmap (\(f,d) -> (f [], d)) .) . go id
+  where
+    go f 0 deck = return (f, deck)
+    go f n deck = do
+      (c, deck') <- nextCard deck
+      go (f . (c:)) (n-1) deck'
 
 -- Exercise 13 ----------------------------------------
 
