@@ -26,12 +26,14 @@ liftM f mx = mx >>= \x -> return $ f x
 --   return $ f x
 
 swapV :: Int -> Int -> Vector a -> Maybe (Vector a)
-swapV n_1 n_2 v = do
-  v_n_1 <- liftM2(!?) (Just v) (Just n_1)
-  v_n_2 <- liftM2(!?) (Just v) (Just n_2)
-  v_1 <- v_n_1
-  v_2 <- v_n_2
-  liftM2(//) (Just v) (Just [(n_1, v_2), (n_2, v_1)])
+swapV n_1 n_2 v = liftM2 (\x y -> v // [(n_1, y), (n_2, x)]) (v !? n_1) (v !? n_2) -- from BenS
+-- my original:
+-- swapV n_1 n_2 v = do
+--   v_n_1 <- liftM2(!?) (Just v) (Just n_1)
+--   v_n_2 <- liftM2(!?) (Just v) (Just n_2)
+--   v_1 <- v_n_1
+--   v_2 <- v_n_2
+--   liftM2(//) (Just v) (Just [(n_1, v_2), (n_2, v_1)])
 
 -- Exercise 2 -----------------------------------------
 
@@ -61,12 +63,20 @@ randomVecR n (lo, hi)  = liftM V.fromList $ (replicateM n (getRandomR (lo, hi)))
 -- Exercise 5 -----------------------------------------
 
 shuffle :: Vector a -> Rnd (Vector a)
-shuffle = undefined
+shuffle v = foldM f v [1..length(v)]
+  where f :: Vector a -> Int -> Rnd (Vector a)
+        f v k = do
+          let i = length(v) - k
+          j <- getRandomR (0, i)
+          return (v // [(j, ((!) v i)), (i, ((!) v j))])
 
 -- Exercise 6 -----------------------------------------
 
 partitionAt :: Ord a => Vector a -> Int -> (Vector a, a, Vector a)
-partitionAt = undefined
+partitionAt v i = (less, ((!) v i), more)
+  where (more, less) = V.partition (>= ((!) v i)) all_but_ith
+        (first_i, rest) = V.splitAt i v
+        all_but_ith = (V.++) first_i (V.tail rest)
 
 -- Exercise 7 -----------------------------------------
 
@@ -77,36 +87,72 @@ quicksort (x:xs) = quicksort [ y | y <- xs, y < x ]
                    <> (x : quicksort [ y | y <- xs, y >= x ])
 
 qsort :: Ord a => Vector a -> Vector a
-qsort = undefined
+qsort v = case (V.null v) of
+  True -> v
+  False -> qsort [ y | y <- xs, y < x ] <> (V.cons x (qsort [y | y <- xs, y >= x ]))
+    where
+      x = V.head v
+      xs = V.tail v
+
+  -- False -> qsort l <> V.cons x (qsort m)
+  --   where
+  --     (l, x, m) = partitionAt v 0
 
 -- Exercise 8 -----------------------------------------
 
 qsortR :: Ord a => Vector a -> Rnd (Vector a)
-qsortR = undefined
+qsortR v = case (V.null v) of
+  True -> return v
+  False -> do
+    random_index <- getRandomR(0, (length v) - 1)
+    let (l, x, m) = partitionAt v random_index
+    l_R <- qsortR l
+    m_R <- qsortR m
+    return $ (l_R <> V.cons x m_R)
 
 -- Exercise 9 -----------------------------------------
 
 -- Selection
 select :: Ord a => Int -> Vector a -> Rnd (Maybe a)
-select = undefined
+select i v
+  | i < 0 || i > ((length v) - 1)= return Nothing
+  | otherwise = do
+    random_index <- getRandomR(0, (length v) - 1)
+    let handle(l, x, m)
+          | (length l - i) == 0 = return $ Just x
+          | (length l) > i = select i l
+          | otherwise = select (i - (length l) - 1) m
+    handle(partitionAt v random_index)
+
 
 -- Exercise 10 ----------------------------------------
 
 allCards :: Deck
-allCards = undefined
+allCards = [Card label suit | suit <- suits, label <- labels]
 
 newDeck :: Rnd Deck
-newDeck =  undefined
+newDeck =  shuffle allCards
 
 -- Exercise 11 ----------------------------------------
 
 nextCard :: Deck -> Maybe (Card, Deck)
-nextCard = undefined
+nextCard d =
+  case (V.null d) of
+    True -> Nothing
+    False -> Just (head d_l, V.fromList(tail d_l)) where d_l = V.toList d
 
 -- Exercise 12 ----------------------------------------
 
 getCards :: Int -> Deck -> Maybe ([Card], Deck)
-getCards = undefined
+getCards n d
+  | n <= 0 || n > (length d) = Nothing
+  | n == 1 = do
+      (card, remaining) <- nextCard d
+      Just ([card], remaining)
+  | otherwise = do
+      (first_card, remaining_deck) <- nextCard d
+      (remaining_cards, remainder) <- getCards (n-1) remaining_deck
+      Just ([first_card] ++ remaining_cards, remainder)
 
 -- Exercise 13 ----------------------------------------
 
