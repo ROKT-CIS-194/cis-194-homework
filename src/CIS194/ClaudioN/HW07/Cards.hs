@@ -1,4 +1,4 @@
-module CIS194.ClaudioN.Cards
+module CIS194.ClaudioN.HW07.Cards
              ( Deck(..)
              , Card(..)
              , Suit(..)
