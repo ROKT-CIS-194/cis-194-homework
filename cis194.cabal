@@ -59,6 +59,9 @@ executable cis194
     CIS194.Lectures.L05IO
     CIS194.Lectures.L06Laziness
     CIS194.Lectures.L07Monads
+    CIS194.Lectures.L08MonadsII
+    CIS194.Lectures.L09Testing
+    CIS194.Lectures.L10TypeWizardry
     CIS194.Testing
     CIS194.Template.HW01
     CIS194.Template.HW01Tests
@@ -81,7 +84,7 @@ executable cis194
 
   -- Other library packages from which modules are imported.
   build-depends:       base >=4.8 && <4.9, aeson, bytestring, containers,
-                       MonadRandom, random, vector
+                       MonadRandom, random, vector, attoparsec, QuickCheck, HUnit
 
   -- Directories containing source files.
   hs-source-dirs:      src
