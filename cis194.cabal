@@ -78,6 +78,7 @@ executable cis194
     CIS194.Template.HW06
     CIS194.Template.HW07
     CIS194.Template.HW07.Cards
+    CIS194.Template.HW08
 
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
