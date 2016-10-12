@@ -30,7 +30,7 @@ exercise1 = animationOf trafficController
 
 -- BLOSSOMS
 
-tree :: Integer -> Picture
+tree :: Int -> Picture
 tree 0 = blank
 tree n = path [(0,0),(0,1)] & translated 0 1 (
   rotated (pi/10) (tree (n-1)) & rotated (- pi/10) (tree (n-1)))
@@ -53,10 +53,10 @@ storage = blank
 box :: Picture
 box = blank
 
-drawTile :: Integer -> Picture
+drawTile :: Int -> Picture
 drawTile i = blank
 
-maze :: Integer -> Integer -> Integer
+maze :: Int -> Int -> Int
 maze x y
   | abs x > 4  || abs y > 4  = 0
   | abs x == 4 || abs y == 4 = 1
