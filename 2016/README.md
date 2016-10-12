@@ -2,11 +2,11 @@
 
 The organisation was a bit messy last time, so this time I thought using
 branches more would keep things tidy.  I'll put template sources in
-`2016/src/CIS194/WeekN.hs` on master and everyone can pull the new templates into
-their own branches and just never merge into master.
+`2016/src/CIS194/WeekN.hs` on master and everyone can pull the new templates
+into their own branches and just never merge into master.
 
-To get a working Haskell system, download or install `stack`
-(`https://docs.haskellstack.org/`) and run the following:
+To get a working Haskell system, download or install
+[stack](https://docs.haskellstack.org/) and run the following:
 
 ```
 $ git clone git@github.com:ROKT-CIS-194/cis-194-homework.git
@@ -18,8 +18,11 @@ cis-194-homework/2016 $ stack repl
 ... installing library dependencies on the first run, it can take a while
 Configuring GHCi with the following packages: cis194
 GHCi, version 8.0.1: http://www.haskell.org/ghc/  :? for help
-Ok, modules loaded: none.
-Main> :main
+Ok, modules loaded: CIS194.Week1, Main.
+Main> :load CIS194.Week1
+CIS194.Week1> exercise1
+Open me on http://127.0.0.1:3000/
+C-c C-cuser interrupt
 ```
 
 The course is based on CodeWorld which has its own Haskell library, the API is
