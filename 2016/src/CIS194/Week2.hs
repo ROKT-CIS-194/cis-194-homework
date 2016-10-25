@@ -12,19 +12,24 @@ data Coord = C Int Int deriving (Eq, Ord, Show)
 data Tile = Wall | Ground | Storage | Box | Blank deriving (Eq, Show)
 
 wall :: Picture
-wall = blank
+wall = coloured (RGBA 0.8 0.1 0.2 1.0) $ solidRectangle 1 1
 
 ground :: Picture
-ground = blank
+ground = coloured (RGBA 0.9 0.8 0.7 1.0) $ solidRectangle 1 1
 
 storage :: Picture
-storage = blank
+storage = (coloured green $ solidCircle 0.1) <> ground
 
 box :: Picture
-box = blank
+box = coloured brown $ solidRectangle 1 1
 
 drawTile :: Tile -> Picture
-drawTile _ = blank
+drawTile i = case i of
+  Wall -> wall
+  Ground -> ground
+  Storage -> storage
+  Box -> box
+  _ -> blank
 
 maze :: Coord -> Tile
 maze (C x y)
@@ -36,30 +41,47 @@ maze (C x y)
   | otherwise                = Ground
 
 pictureOfMaze :: Picture
-pictureOfMaze = blank
-
+pictureOfMaze = pictures tiles
+  where tiles = do x <- [-10..10]
+                   y <- [-10..10]
+                   return . trans x y . drawTile . maze $ (C x y)
+        trans x y = translated (fromIntegral x) (fromIntegral y)
 
 -- #1 MOVEMENT
 
-type World = ()
+data World = World Coord
+
+adjacentCoord :: Direction -> Coord -> Coord
+adjacentCoord R (C x y) = C (x+1) y
+adjacentCoord U (C x y) = C  x   (y+1)
+adjacentCoord L (C x y) = C (x-1) y
+adjacentCoord D (C x y) = C  x   (y-1)
 
 player :: Picture
-player = blank
+player = coloured black $ pictures p
+  where p = [solidCircle 0.2,
+             path [(0.0,0.0),(0.3,0.4)],
+             path [(0.0,0.0),(-0.3,0.4)]]
 
 exercise1 :: IO ()
 exercise1 = interactionOf world0 stepTime stepInput output
   where
-    world0 :: World
-    world0 = ()
+    world0 = World (C 1 1)
 
     stepTime :: Double -> World -> World
     stepTime _ = id
 
     stepInput :: Event -> World -> World
-    stepInput _ = id
+    stepInput (KeyPress key) (World c1) = World c2
+      where c2 = case key of
+              "Up" -> adjacentCoord U c1
+              "Down" -> adjacentCoord D c1
+              "Left" -> adjacentCoord L c1
+              "Right" -> adjacentCoord R c1
+              _ -> c1
 
     output :: World -> Picture
-    output _ = blank
+    output (World (C x y)) = (translated (fromIntegral x) (fromIntegral y) $ player) <> pictureOfMaze
 
 
 -- #2 LOOK THE RIGHT WAY
@@ -72,8 +94,7 @@ player2 _ = blank
 exercise2 :: IO ()
 exercise2 = interactionOf world0 stepTime stepInput output
   where
-    world0 :: World
-    world0 = ()
+    world0 = World (C 1 1)
 
     stepTime :: Double -> World -> World
     stepTime _ = id
@@ -99,8 +120,7 @@ resetableInteractionOf _ _ _ _ =
 exercise3 :: IO ()
 exercise3 = resetableInteractionOf world0 stepTime stepInput output
   where
-    world0 :: World
-    world0 = ()
+    world0 = World (C 1 1)
 
     stepTime :: Double -> World -> World
     stepTime _ = id
