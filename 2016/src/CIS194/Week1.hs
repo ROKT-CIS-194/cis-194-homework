@@ -3,6 +3,7 @@
 module CIS194.Week1 where
 
 import CodeWorld
+import Data.Fixed
 
 -- TRAFFIC LIGHTS
 
@@ -30,31 +31,44 @@ exercise1 = animationOf trafficController
 
 -- BLOSSOMS
 
-tree :: Int -> Picture
-tree 0 = blank
-tree n = path [(0,0),(0,1)] & translated 0 1 (
-  rotated (pi/10) (tree (n-1)) & rotated (- pi/10) (tree (n-1)))
+tree :: Double -> Int -> Picture
+tree t 0 = (coloured colour (curve [(0,0),(0.2,0.5),(0,1)])) &
+           (coloured colour (curve [(0,0),(-0.2,0.5),(0,1)]))
+           where cols = [(1,0),(0.7,1),(0,1),(1,0.9)]
+                 lerp = \f -> ((f (cols !! (floor t `mod` 4))) * (1 - (mod' t 1))) +
+                              ((f (cols !! (floor (t+1) `mod` 4))) * (mod' t 1))
+                 colour = (RGBA (lerp fst) (lerp snd) 0 1)
+tree t n = path [(0,0),(0,1)] &
+  translated 0 1 $
+  (rotated (angle t) . tree t $ (n-1)) &
+  (rotated (- (angle (t+pi/1.5))) . tree t $ n-1)
+  where angle = \t -> pi/10/(((sin t) * 0.1) + 0.95)
 
 exercise2 :: IO ()
-exercise2 = drawingOf (tree 5)
+exercise2 = animationOf (\t -> (tree t 5))
 
 
 -- SOKOBAN
 
 wall :: Picture
-wall = blank
+wall = coloured (RGBA 0.8 0.1 0.2 1.0) $ solidRectangle 1 1
 
 ground :: Picture
-ground = blank
+ground = coloured (RGBA 0.9 0.8 0.7 1.0) $ solidRectangle 1 1
 
 storage :: Picture
-storage = blank
+storage = (coloured green $ solidCircle 0.1) <> ground
 
 box :: Picture
-box = blank
+box = coloured brown $ solidRectangle 1 1
 
 drawTile :: Int -> Picture
-drawTile i = blank
+drawTile i = case i of
+  1 -> wall
+  2 -> ground
+  3 -> storage
+  4 -> box
+  _ -> blank
 
 maze :: Int -> Int -> Int
 maze x y
@@ -66,7 +80,10 @@ maze x y
   | otherwise                = 2
 
 pictureOfMaze :: Picture
-pictureOfMaze = blank
+pictureOfMaze = pictures tiles
+  where tiles = do x <- [-10..10]
+                   y <- [-10..10]
+                   return . translated (fromIntegral x) (fromIntegral y) . drawTile $ maze x y
 
 exercise3 :: IO ()
 exercise3 = drawingOf pictureOfMaze
