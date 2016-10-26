@@ -58,10 +58,11 @@ executable cis194
   -- other-extensions:
 
   -- Other library packages from which modules are imported.
-  build-depends:       base
-                     , HUnit
+  build-depends:       HUnit
                      , QuickCheck
+                     , base
                      , codeworld-api
+                     , text
 
   -- Directories containing source files.
   hs-source-dirs:      src
