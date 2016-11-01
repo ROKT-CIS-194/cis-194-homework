@@ -134,13 +134,13 @@ player D = translated 0 0.3 cranium
 pictureOfBoxes :: List Coord -> Picture
 pictureOfBoxes cs = combine (mapList (\c -> atCoord c (drawTile Box)) cs)
 
-drawState :: State -> Picture
-drawState State = pictureOfMaze
+draw :: State -> Picture
+draw State = pictureOfMaze
 
 -- The complete interaction
 
 sokoban :: Interaction State
-sokoban = Interaction initialState (\_ c -> c) handleEvent drawState
+sokoban = Interaction initialState (\_ c -> c) handleEvent draw
 
 -- The general interaction type
 
