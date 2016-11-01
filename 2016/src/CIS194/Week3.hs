@@ -2,11 +2,20 @@
 
 module CIS194.Week3 where
 
+import Control.Applicative
+import Control.Monad (guard)
 import CodeWorld
 
 -- Lists
 
-data List a = Empty | Entry a (List a)
+data List a
+  = Empty
+  | Entry a (List a)
+    deriving (Eq, Ord, Show)
+
+instance Foldable List where
+  foldMap _ Empty = mempty
+  foldMap f (Entry x xs) = f x `mappend` foldMap f xs
 
 mapList :: (a -> b) -> List a -> List b
 mapList _ Empty = Empty
@@ -16,12 +25,21 @@ combine :: List Picture -> Picture
 combine Empty = blank
 combine (Entry p ps) = p & combine ps
 
+concatLists :: List (List a) -> List a
+concatLists Empty = Empty
+concatLists (Entry Empty ys) = concatLists ys
+concatLists (Entry (Entry x xs) ys) = Entry x (concatLists (Entry xs ys))
+
+
 -- Coordinates
 
+data Coord
+  = C Integer Integer
+    deriving (Eq, Ord, Show)
 
-data Coord = C Integer Integer
-
-data Direction = R | U | L | D
+data Direction
+  = R | U | L | D
+    deriving (Eq, Ord, Show)
 
 eqCoord :: Coord -> Coord -> Bool
 eqCoord = undefined
@@ -38,7 +56,9 @@ moveFromTo = undefined
 
 -- The maze
 
-data Tile = Wall | Ground | Storage | Box | Blank
+data Tile
+  = Wall | Ground | Storage | Box | Blank
+    deriving (Eq, Ord, Show)
 
 maze :: Coord -> Tile
 maze (C x y)
@@ -50,41 +70,89 @@ maze (C x y)
   | otherwise                = Ground
 
 noBoxMaze :: Coord -> Tile
-noBoxMaze = undefined
+noBoxMaze c = if maze c == Box then Ground else maze c
 
 mazeWithBoxes :: List Coord -> Coord -> Tile
-mazeWithBoxes = undefined
+mazeWithBoxes Empty c = noBoxMaze c
+mazeWithBoxes (Entry c _) c' | c == c' = Box
+mazeWithBoxes (Entry _ cs) c = mazeWithBoxes cs c
+
 
 -- The state
 
-data State = State -- FIXME!
+data State = State
+  { playerPos :: Coord
+  , playerDir :: Direction
+  , gameBoxes :: List Coord
+  } deriving Show
 
+allCoords :: List Coord
+allCoords = go (-10) (-10)
+  where
+    go 11 10 = Empty
+    go 11 y = go (-10) (y+1)
+    go x y = Entry (C x y) (go (x+1) y)
 
 initialBoxes :: List Coord
-initialBoxes = undefined
+initialBoxes = concatLists (mapList (\c -> f (maze c) c) allCoords)
+  where
+    f t c = if t == Box then Entry c Empty else Empty
 
 initialState :: State
-initialState = State -- FIXME!
+initialState = State (C 0 1) R initialBoxes
+
 
 -- Event handling
 
+nextPos :: (Coord -> Tile) -> List Coord -> Direction -> Coord -> Maybe Coord
+nextPos mz boxes dir (C x y) =
+  pos <$ guard (mz pos `elem` [Ground, Storage]) <* guard (pos `notElem` boxes)
+  where
+    pos = case dir of
+      U -> C x (y+1)
+      D -> C x (y-1)
+      L -> C (x-1) y
+      R -> C (x+1) y
+
+shiftBoxes
+  :: (Coord -> Tile) -> Direction -> Coord -> List Coord -> Maybe (List Coord)
+shiftBoxes mz dir p boxes = go boxes
+  where
+    go Empty = Just Empty
+    go (Entry q cs)
+      | p == q = Entry <$> nextPos mz boxes dir q <*> go cs
+      | otherwise = Entry q <$> go cs
+
 handleEvent :: Event -> State -> State
-handleEvent _ s = s -- FIXME!
+handleEvent ev s@(State pos _ boxes) =
+  maybe s (\d -> maybe (State pos d boxes) id (go d)) dirMay
+  where
+    go d = do
+      p <- nextPos noBoxMaze Empty d pos <|> Just pos
+      boxes' <- shiftBoxes noBoxMaze d p boxes
+      return (State p d boxes')
+    dirMay = case ev of
+      KeyPress "Up"    -> Just U
+      KeyPress "Down"  -> Just D
+      KeyPress "Left"  -> Just L
+      KeyPress "Right" -> Just R
+      _                -> Nothing
+
 
 -- Drawing
 
-wall, ground, storage, box :: Picture
-wall =    colored (grey 0.4) (solidRectangle 1 1)
-ground =  colored yellow     (solidRectangle 1 1)
-storage = colored white (solidCircle 0.3) & ground
-box =     colored brown      (solidRectangle 1 1)
+circ, square :: Color -> Picture
+circ col = coloured col (solidCircle 0.35)
+square col = coloured col (solidRectangle 1.02 1.02)
 
 drawTile :: Tile -> Picture
-drawTile Wall    = wall
-drawTile Ground  = ground
-drawTile Storage = storage
-drawTile Box     = box
-drawTile Blank   = blank
+drawTile tile =
+  case tile of
+    Wall    -> square (grey 0.4)
+    Ground  -> square yellow
+    Storage -> circ white & square yellow
+    Box     -> square brown
+    Blank   -> blank
 
 pictureOfMaze :: Picture
 pictureOfMaze = draw21times (\r -> draw21times (\c -> drawTileAt (C r c)))
@@ -97,50 +165,31 @@ draw21times something = go (-10)
     go n  = something n & go (n+1)
 
 drawTileAt :: Coord -> Picture
-drawTileAt c = atCoord c (drawTile (maze c))
-
+drawTileAt c = atCoord c (drawTile (noBoxMaze c))
 
 atCoord :: Coord -> Picture -> Picture
 atCoord (C x y) pic = translated (fromIntegral x) (fromIntegral y) pic
 
-
 player :: Direction -> Picture
-player R = translated 0 0.3 cranium
-         & path [(0,0),(0.3,0.05)]
-         & path [(0,0),(0.3,-0.05)]
-         & path [(0,-0.2),(0,0.1)]
-         & path [(0,-0.2),(0.1,-0.5)]
-         & path [(0,-0.2),(-0.1,-0.5)]
-  where cranium = circle 0.18
-                & sector (7/6*pi) (1/6*pi) 0.18
-player L = scaled (-1) 1 (player R) -- Cunning!
-player U = translated 0 0.3 cranium
-         & path [(0,0),(0.3,0.05)]
-         & path [(0,0),(-0.3,0.05)]
-         & path [(0,-0.2),(0,0.1)]
-         & path [(0,-0.2),(0.1,-0.5)]
-         & path [(0,-0.2),(-0.1,-0.5)]
-  where cranium = solidCircle 0.18
-player D = translated 0 0.3 cranium
-         & path [(0,0),(0.3,-0.05)]
-         & path [(0,0),(-0.3,-0.05)]
-         & path [(0,-0.2),(0,0.1)]
-         & path [(0,-0.2),(0.1,-0.5)]
-         & path [(0,-0.2),(-0.1,-0.5)]
-  where cranium = circle 0.18
-                & translated   0.06  0.08 (solidCircle 0.04)
-                & translated (-0.06) 0.08 (solidCircle 0.04)
+player dir =
+  rotated (case dir of L -> pi; R -> 0; U -> pi/2; D -> 3*pi/2)
+  $ translated 0.1 0.1 (scaled 0.2 0.2 (circ white))
+    & translated 0.1 (-0.1) (scaled 0.2 0.2 (circ white))
+    & circ black
 
 pictureOfBoxes :: List Coord -> Picture
 pictureOfBoxes cs = combine (mapList (\c -> atCoord c (drawTile Box)) cs)
 
 draw :: State -> Picture
-draw State = pictureOfMaze
+draw (State pos dir boxes) =
+  atCoord pos (player dir) & pictureOfBoxes boxes & pictureOfMaze
+
 
 -- The complete interaction
 
 sokoban :: Interaction State
 sokoban = Interaction initialState (\_ c -> c) handleEvent draw
+
 
 -- The general interaction type
 
@@ -150,10 +199,10 @@ data Interaction world = Interaction
         (Event -> world -> world)
         (world -> Picture)
 
-
 runInteraction :: Interaction s -> IO ()
 runInteraction (Interaction state0 step handle draw)
   = interactionOf state0 step handle draw
+
 
 -- Resetable interactions
 
@@ -162,6 +211,7 @@ resetable (Interaction state0 step handle draw)
   = Interaction state0 step handle' draw
   where handle' (KeyPress key) _ | key == "Esc" = state0
         handle' e s = handle e s
+
 
 -- Start screen
 
@@ -190,4 +240,4 @@ withStartScreen (Interaction state0 step handle draw)
 -- The main function
 
 main :: IO ()
-main = runInteraction sokoban
+main = runInteraction (withStartScreen $ resetable sokoban)
