@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module CIS194.Week3 where
+--module CIS194.Week3 where
 
 import CodeWorld
 
@@ -11,6 +11,10 @@ data List a = Empty | Entry a (List a)
 mapList :: (a -> b) -> List a -> List b
 mapList _ Empty = Empty
 mapList f (Entry c cs) = Entry (f c) (mapList f cs)
+
+allList :: List Bool -> Bool
+allList (Entry a as) = a && allList as
+allList Empty = True
 
 combine :: List Picture -> Picture
 combine Empty = blank
@@ -24,7 +28,7 @@ data Coord = C Integer Integer
 data Direction = R | U | L | D
 
 eqCoord :: Coord -> Coord -> Bool
-eqCoord = undefined
+eqCoord (C x1 y1) (C x2 y2) = (x1 == x2) && (y1 == y2)
 
 adjacentCoord :: Direction -> Coord -> Coord
 adjacentCoord R (C x y) = C (x+1) y
@@ -33,12 +37,13 @@ adjacentCoord L (C x y) = C (x-1) y
 adjacentCoord D (C x y) = C  x   (y-1)
 
 moveFromTo :: Coord -> Coord -> Coord -> Coord
-moveFromTo = undefined
-
+moveFromTo from to c
+  | eqCoord from c = to
+  | otherwise      = c
 
 -- The maze
 
-data Tile = Wall | Ground | Storage | Box | Blank
+data Tile = Wall | Ground | Storage | Box | Blank deriving (Show, Eq)
 
 maze :: Coord -> Tile
 maze (C x y)
@@ -49,27 +54,57 @@ maze (C x y)
   | x >= -2 && y == 0        = Box
   | otherwise                = Ground
 
+isOnStorage :: Coord -> Bool
+isOnStorage c = (maze c == Storage)
+
 noBoxMaze :: Coord -> Tile
-noBoxMaze = undefined
+noBoxMaze c = case maze c of
+  Box -> Ground
+  x   -> x
 
 mazeWithBoxes :: List Coord -> Coord -> Tile
-mazeWithBoxes = undefined
+mazeWithBoxes (Entry c cs) c2
+  | eqCoord c c2 = Box
+  | otherwise    = mazeWithBoxes cs c2
+mazeWithBoxes _ c = noBoxMaze c
+
 
 -- The state
 
-data State = State -- FIXME!
-
+data State = State Coord Direction (List Coord)
 
 initialBoxes :: List Coord
-initialBoxes = undefined
+initialBoxes = foldr (Entry) Empty $ filter (\c -> maze c == Box) [(C x y) | x <- [-10..10], y <- [-10..10]]
 
 initialState :: State
-initialState = State -- FIXME!
+initialState = State (C 0 1) R initialBoxes
+
+isWon :: State -> Bool
+isWon (State _ _ boxes) = allList (mapList isOnStorage boxes)
+
 
 -- Event handling
 
+moveIfAllowed :: State -> Direction -> State
+moveIfAllowed (State from _ boxes) d
+  | (at to == Box) && (allowed $ at next) = (State to d $ moveBoxes)
+  | allowed (at to) = (State to d boxes)
+  | otherwise = (State from d boxes)
+  where at = mazeWithBoxes boxes
+        to = adjacentCoord d from
+        next = adjacentCoord d to
+        moveBoxes = mapList (moveFromTo to next) boxes
+        allowed t = (t == Ground || t == Storage)
+
 handleEvent :: Event -> State -> State
-handleEvent _ s = s -- FIXME!
+handleEvent _ s
+    | isWon s = s
+handleEvent (KeyPress k) s
+  | k == "Up"    = (moveIfAllowed s U)
+  | k == "Down"  = (moveIfAllowed s D)
+  | k == "Left"  = (moveIfAllowed s L)
+  | k == "Right" = (moveIfAllowed s R)
+handleEvent _ s = s
 
 -- Drawing
 
@@ -97,7 +132,7 @@ draw21times something = go (-10)
     go n  = something n & go (n+1)
 
 drawTileAt :: Coord -> Picture
-drawTileAt c = atCoord c (drawTile (maze c))
+drawTileAt c = atCoord c (drawTile (noBoxMaze c))
 
 
 atCoord :: Coord -> Picture -> Picture
@@ -135,7 +170,11 @@ pictureOfBoxes :: List Coord -> Picture
 pictureOfBoxes cs = combine (mapList (\c -> atCoord c (drawTile Box)) cs)
 
 draw :: State -> Picture
-draw State = pictureOfMaze
+draw s@(State c d boxes)
+ | (isWon s) = (text "You won!")
+ | otherwise = atCoord c (player d)
+             & pictureOfBoxes boxes
+             & pictureOfMaze
 
 -- The complete interaction
 
@@ -190,4 +229,6 @@ withStartScreen (Interaction state0 step handle draw)
 -- The main function
 
 main :: IO ()
+--main = drawingOf (pictureOfBoxes initialBoxes)
+--main = drawingOf pictureOfMaze
 main = runInteraction sokoban
