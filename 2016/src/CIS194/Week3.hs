@@ -6,25 +6,32 @@ import CodeWorld
 
 -- Lists
 
-data List a = Empty | Entry a (List a)
+data List a = Empty | Entry a (List a) deriving (Show)
 
 mapList :: (a -> b) -> List a -> List b
 mapList _ Empty = Empty
 mapList f (Entry c cs) = Entry (f c) (mapList f cs)
 
+filterList :: (a -> Bool) -> List a -> List a
+filterList _ Empty = Empty
+filterList p (Entry x xs) | p x       = Entry x $ filterList p xs
+                          | otherwise = filterList p xs
+
 combine :: List Picture -> Picture
 combine Empty = blank
 combine (Entry p ps) = p & combine ps
 
+findList :: (a -> Bool) -> List a -> Maybe a
+findList _ Empty = Nothing
+findList p (Entry x xs) | p x       = Just x
+                        | otherwise = findList p xs
+
 -- Coordinates
 
 
-data Coord = C Integer Integer
+data Coord = C Integer Integer deriving (Show, Eq)
 
-data Direction = R | U | L | D
-
-eqCoord :: Coord -> Coord -> Bool
-eqCoord = undefined
+data Direction = R | U | L | D deriving (Show, Eq)
 
 adjacentCoord :: Direction -> Coord -> Coord
 adjacentCoord R (C x y) = C (x+1) y
@@ -32,13 +39,19 @@ adjacentCoord U (C x y) = C  x   (y+1)
 adjacentCoord L (C x y) = C (x-1) y
 adjacentCoord D (C x y) = C  x   (y-1)
 
+allCoords :: List Coord
+allCoords = go Empty 10 10
+              where go cs x y | x <= (-10) && y <= (-10) = (Entry (C x y) cs)
+                              | x <= (-10)               = go (Entry (C x y) cs) 10 (y - 1)
+                              | otherwise                = go (Entry (C x y) cs) (x - 1) y
+
 moveFromTo :: Coord -> Coord -> Coord -> Coord
 moveFromTo = undefined
 
 
 -- The maze
 
-data Tile = Wall | Ground | Storage | Box | Blank
+data Tile = Wall | Ground | Storage | Box | Blank deriving (Show, Eq)
 
 maze :: Coord -> Tile
 maze (C x y)
@@ -50,26 +63,45 @@ maze (C x y)
   | otherwise                = Ground
 
 noBoxMaze :: Coord -> Tile
-noBoxMaze = undefined
+noBoxMaze c = case m of Box -> Ground
+                        _   -> m
+                where m = maze c
 
 mazeWithBoxes :: List Coord -> Coord -> Tile
-mazeWithBoxes = undefined
+mazeWithBoxes bs c = case (findList (== c) bs) of
+                       Just _  -> Box
+                       Nothing -> noBoxMaze c
 
 -- The state
 
-data State = State -- FIXME!
-
+data State = State { playerPos :: Coord
+                   , playerDir :: Direction
+                   , boxes     :: (List Coord)
+                   } deriving (Show)
 
 initialBoxes :: List Coord
-initialBoxes = undefined
+initialBoxes = filterList ((== Box) . maze) allCoords
 
 initialState :: State
-initialState = State -- FIXME!
+initialState = State { playerPos = case (filterList availableTile allCoords) of
+                                     Entry c _ -> c
+                                     Empty     -> C 1 2
+                     , playerDir = R
+                     , boxes = initialBoxes
+                     }
+                 where availableTile c = (notBox c) && (isGround c)
+                       notBox c        = findList (== c) initialBoxes == Nothing
+                       isGround c      = (noBoxMaze c) == Ground
 
 -- Event handling
 
 handleEvent :: Event -> State -> State
-handleEvent _ s = s -- FIXME!
+handleEvent e s  = case e of
+                     KeyPress "Up"    -> s { playerDir = U }
+                     KeyPress "Down"  -> s { playerDir = D }
+                     KeyPress "Left"  -> s { playerDir = L }
+                     KeyPress "Right" -> s { playerDir = R }
+                     _                -> s
 
 -- Drawing
 
@@ -97,7 +129,7 @@ draw21times something = go (-10)
     go n  = something n & go (n+1)
 
 drawTileAt :: Coord -> Picture
-drawTileAt c = atCoord c (drawTile (maze c))
+drawTileAt c = atCoord c (drawTile (noBoxMaze c))
 
 
 atCoord :: Coord -> Picture -> Picture
@@ -135,7 +167,8 @@ pictureOfBoxes :: List Coord -> Picture
 pictureOfBoxes cs = combine (mapList (\c -> atCoord c (drawTile Box)) cs)
 
 draw :: State -> Picture
-draw State = pictureOfMaze
+draw State {playerPos=pos, playerDir=dir, boxes=bs} = pl & pictureOfBoxes bs & pictureOfMaze
+  where pl = atCoord pos $ player dir
 
 -- The complete interaction
 
