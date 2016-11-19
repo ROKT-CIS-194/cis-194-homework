@@ -55,6 +55,7 @@ executable cis194
                        CIS194.Week2
                        CIS194.FRP
                        CIS194.Week3
+                       CIS194.Week4
 
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
@@ -70,6 +71,8 @@ executable cis194
 
   -- Directories containing source files.
   hs-source-dirs:      src
+
+  ghc-options:         -Wall -threaded -rtsopts -with-rtsopts=-N
 
   -- Base language which the package is written in.
   default-language:    Haskell2010
