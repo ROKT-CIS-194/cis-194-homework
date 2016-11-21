@@ -3,7 +3,8 @@
 module CIS194.Week2 where
 
 import CodeWorld
-import Data.Text
+import Data.Text (pack)
+import Data.Maybe
 
 -- LAST WEEK
 -- Replace with your implementation from last week.
@@ -52,6 +53,7 @@ pictureOfMaze maze = pictures tiles
 data World = World { playerCoord :: Coord
                    , lastPlayerCoord :: Coord
                    , playerDirection :: Direction
+                   , lastPlayerDirection :: Direction
                    , lastMoveTime :: Double
                    , worldTime :: Double
                    }
@@ -83,76 +85,88 @@ player = coloured black $ pictures p
 atCoord :: Coord -> Picture -> Picture
 atCoord (C x y) = translated x y
 
+clampT :: Double -> Double
+clampT t | t < 0.0 = 0.0
+         | t > 1.0 = 1.0
+         | otherwise = t
+
 lerpCoords :: Coord -> Coord -> Double -> Coord
 lerpCoords (C x1 y1) (C x2 y2) t = C x' y'
-  where t' | t < 0.0 = 0.0
-           | t > 1.0 = 1.0
-           | otherwise = t
+  where t' = clampT t
         x' = x1 + ((x2 - x1) * t')
         y' = y1 + ((y2 - y1) * t')
 
+slerpDirection :: Direction -> Direction -> Double -> Double
+slerpDirection d1 d2 t = theta
+  where direction d = case d of
+          U -> [0.0, 1.0]
+          R -> [1.0, 0.0]
+          D -> [0.0, (-1.0)]
+          L -> [(-1.0), 0.0]
+        v1 = direction d1
+        v2 = direction d2
+        t' = clampT t
+        omega = 1.0
+        v1' = map (\e -> ((sin ((1 - t') * omega)) / (sin omega)) * e) v1
+        v2' = map (\e -> ((sin (t' * omega)) / (sin omega)) * e) v2
+        v3 = zipWith (+) v1' v2'
+        theta = (atan2 (v3 !! 1) (v3 !! 0)) - (atan2 1.0 0.0)
+
+stepInput :: (Coord -> Tile) -> Event -> World -> World
+stepInput maze (KeyPress key) w
+  | moveTimeDiff >= 0.1 = w { playerCoord = (trace (pack (show c2)) c2)
+                            , playerDirection = (fromMaybe d1 d2)
+                            , lastPlayerDirection = d1
+                            , lastPlayerCoord = c1
+                            , lastMoveTime = worldTime w }
+  | otherwise = w
+  where moveTimeDiff = (worldTime w) - (lastMoveTime w)
+        moveToCoord' = moveToCoord maze c1
+        d1 = playerDirection w
+        d2 = case key of
+          "Up" -> Just U
+          "Down" -> Just D
+          "Left" -> Just L
+          "Right" -> Just R
+          _ -> Nothing
+        c1 = playerCoord w
+        c2 = maybe c1 moveToCoord' d2
+stepInput _ _ w = w
+
+stepTime :: Double -> World -> World
+stepTime t w = w { worldTime = newWorldTime }
+  where newWorldTime = worldTime w + t
+
+output :: Picture -> World -> Picture
+output player w = (atCoord c . rotated theta $ player) <> pictureOfMaze maze1
+  where c1 = lastPlayerCoord w
+        c2 = playerCoord w
+        d1 = lastPlayerDirection w
+        d2 = playerDirection w
+        t = ((worldTime w) - (lastMoveTime w)) * 10
+        c = lerpCoords c1 c2 t
+        theta = slerpDirection d1 d2 t
+
+initWorld :: Coord -> World
+initWorld startCoord = World {playerCoord = startCoord, lastPlayerCoord = startCoord,
+                              playerDirection = R, lastPlayerDirection = R,
+                              lastMoveTime = 0.0, worldTime = 0.0}
+
 exercise1 :: IO ()
-exercise1 = interactionOf world0 stepTime stepInput output
+exercise1 = interactionOf world0 stepTime (stepInput maze1) (output player)
   where
-    startCoord = C (-3) 3
-    world0 = World {playerCoord = startCoord, lastPlayerCoord = startCoord,
-                    playerDirection = U, lastMoveTime = 0.0, worldTime = 0.0}
-
-    maze = maze1
-
-    stepTime :: Double -> World -> World
-    stepTime t w = w { worldTime = newWorldTime }
-      where newWorldTime = worldTime w + t
-
-    stepInput :: Event -> World -> World
-    stepInput (KeyPress key) w
-      | moveTimeDiff >= 0.1 = w { playerCoord = c2
-                                 ,  lastPlayerCoord = c1
-                                 , lastMoveTime = worldTime w }
-      | otherwise = w
-      where moveTimeDiff = (worldTime w) - (lastMoveTime w)
-            moveToCoord' = moveToCoord maze c1
-            c1 = playerCoord w
-            c2 = case key of
-              "Up" -> moveToCoord' U
-              "Down" -> moveToCoord' D
-              "Left" -> moveToCoord' L
-              "Right" -> moveToCoord' R
-              _ -> c1
-    stepInput _ w = w
-
-    output :: World -> Picture
-    output w = (atCoord c $ player) <> pictureOfMaze maze1
-      where a = lastPlayerCoord w
-            b = playerCoord w
-            t = ((worldTime w) - (lastMoveTime w)) * 10
-            c = lerpCoords a b t
-
+    world0 = initWorld $ C (-3) 3
 
 -- #2 LOOK THE RIGHT WAY
 
 data Direction = U | D | L | R deriving (Eq, Show)
 
-player2 :: Direction -> Picture
-player2 _ = blank
-
 exercise2 :: IO ()
-exercise2 = interactionOf world0 stepTime stepInput output
+exercise2 = interactionOf world0 stepTime (stepInput maze1)
+            (output $ player)
   where
-    startCoord = C (-9) (-9)
-    world0 = World {playerCoord = startCoord, lastPlayerCoord = startCoord,
-                    playerDirection = U, lastMoveTime = 0.0, worldTime = 0.0}
-
-
-    stepTime :: Double -> World -> World
-    stepTime _ = id
-
-    stepInput :: Event -> World -> World
-    stepInput _ = id
-
-    output :: World -> Picture
-    output _ = blank
-
+    startCoord = C (-3) (-3)
+    world0 = initWorld $ C (-3) 3
 
 -- #3 RESET!
 
@@ -169,8 +183,7 @@ exercise3 :: IO ()
 exercise3 = resetableInteractionOf world0 stepTime stepInput output
   where
     startCoord = C (-9) (-9)
-    world0 = World {playerCoord = startCoord, lastPlayerCoord = startCoord,
-                    playerDirection = U, lastMoveTime = 0.0, worldTime = 0.0}
+    world0 = initWorld startCoord
 
 
     stepTime :: Double -> World -> World
