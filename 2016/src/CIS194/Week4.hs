@@ -1,17 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module CIS194.Week4 where
+-- module CIS194.Week4 where
 
 import CodeWorld
 
 -- Coordinates
 
-data Coord = C Integer Integer
+data Coord = C Integer Integer deriving (Show, Eq)
 
-data Direction = R | U | L | D
-
-eqCoord :: Coord -> Coord -> Bool
-eqCoord = undefined
+data Direction = R | U | L | D deriving (Show, Eq)
 
 adjacentCoord :: Direction -> Coord -> Coord
 adjacentCoord R (C x y) = C (x+1) y
@@ -20,7 +17,10 @@ adjacentCoord L (C x y) = C (x-1) y
 adjacentCoord D (C x y) = C  x   (y-1)
 
 moveFromTo :: Coord -> Coord -> Coord -> Coord
-moveFromTo = undefined
+moveFromTo from to c
+  | (from == c) = to
+  | otherwise  = c
+
 
 -- Exercise 1: Lists
 
@@ -42,29 +42,52 @@ combine Empty = blank
 combine (Entry p ps) = p & combine ps
 
 elemList :: Eq a => a -> List a -> Bool
-elemList = undefined
+elemList _ Empty = False
+elemList x (Entry y ys) = (x == y) || (elemList x ys)
 
 appendList :: List a -> List a -> List a
-appendList = undefined
+appendList Empty xs = xs
+appendList (Entry x xs) ys = Entry x $ appendList xs ys
 
 listLength :: List a -> Integer
-listLength = undefined
+listLength Empty = 0
+listLength (Entry _ xs) = 1 + listLength xs
 
 filterList :: (a -> Bool) -> List a -> List a
-filterList = undefined
+filterList _ Empty = Empty
+filterList p (Entry x xs)
+  | (p x)     = Entry x $ rest
+  | otherwise = rest
+  where rest = filterList p xs
 
 nth :: List a -> Integer -> a
-nth = undefined
+nth Empty _ = error "nth: encountered empty list"
+nth (Entry x  _) 1 = x -- starting at one! Why "CIS-194 instructions", why?
+nth (Entry _ xs) n = nth xs $ n-1
 
 -- Exercise 2: Graph Search
 
 isGraphClosed :: Eq a => a -> (a -> List a) -> (a -> Bool) -> Bool
-isGraphClosed initial adjacent isOk = undefined
+isGraphClosed initial adjacent isOk = go Empty (Entry initial Empty)
+  where go _ Empty = True
+        go seen (Entry node nodes) | elemList node seen = go seen nodes
+        go _    (Entry node _)     | not (isOk node) = False
+        go seen (Entry node nodes) = go (Entry node seen) $ appendList (adjacent node) nodes
 
 -- Exercise 3: Check closedness of mazes
 
+allowed :: Tile -> Bool
+allowed t = (t == Ground || t == Storage)
+
+allDirections :: List Direction
+allDirections = Entry R (Entry U (Entry L (Entry D Empty)))
+
 isClosed :: Maze -> Bool
-isClosed = undefined
+isClosed (Maze initial m) = allowed (m initial) && isGraphClosed initial adjacent notBlank
+  where notBlank node = (m node /= Blank)
+        notWall coord = (m coord /= Wall)
+        adjacentCoords node = mapList (flip adjacentCoord node) allDirections
+        adjacent node = filterList notWall $ adjacentCoords node
 
 pictureOfBools :: List Bool -> Picture
 pictureOfBools xs = translated (-fromIntegral k /2) (fromIntegral k) (go 0 xs)
@@ -83,22 +106,16 @@ pictureOfBools xs = translated (-fromIntegral k /2) (fromIntegral k) (go 0 xs)
         pictureOfBool False = colored red   (solidCircle 0.4)
 
 exercise3 :: IO ()
-exercise3 = undefined
+exercise3 = drawingOf (pictureOfBools $ mapList isClosed extraMazes)
 
 -- Exercise 4: Multi-Level Sokoban
 -- Extend your game from last week (or the code from the lecture) to implement
 -- multi-level sokoban.
 
-exercise4 :: IO ()
-exercise4 = undefined
-
-main :: IO ()
-main = return ()
-
 
 -- MAZES
 
-data Tile = Wall | Ground | Storage | Box | Blank
+data Tile = Wall | Ground | Storage | Box | Blank deriving (Eq, Show)
 
 data Maze = Maze Coord (Coord -> Tile)
 
@@ -341,3 +358,196 @@ maze9' :: Coord -> Tile
 maze9' (C 3 0) = Box
 maze9' (C 4 0) = Box
 maze9'  c      = maze9 c
+
+
+
+
+
+---
+--- Code from Lecture 3, modified to specify maze level
+---
+
+-- The maze
+
+isOnStorage :: Maze -> Coord -> Bool
+isOnStorage (Maze _ m) c = (m c == Storage)
+
+noBoxMaze :: Maze -> Coord -> Tile
+noBoxMaze (Maze _ m) c = case m c of
+  Box -> Ground
+  x   -> x
+
+mazeWithBoxes :: Maze -> List Coord -> Coord -> Tile
+mazeWithBoxes m (Entry c cs) c2
+  | (c == c2) = Box
+  | otherwise = mazeWithBoxes m cs c2
+mazeWithBoxes m _ c = noBoxMaze m c
+
+
+-- The state
+
+data State = State Coord Direction (List Coord) Integer deriving (Eq, Show)
+
+initialBoxes :: Maze -> List Coord
+initialBoxes (Maze _ m) = foldr (Entry) Empty $ filter (\c -> m c == Box) [(C x y) | x <- [-10..10], y <- [-10..10]]
+
+initialState :: Integer -> State
+initialState i = State c R (initialBoxes m) i
+  where m@(Maze c _) = nth mazes i
+
+allList :: List Bool -> Bool
+allList (Entry a as) = a && allList as
+allList Empty = True
+
+isWon :: State -> Bool
+isWon (State _ _ boxes i) = allList (mapList (isOnStorage $ nth mazes i) boxes)
+
+
+-- Event handling
+
+moveIfAllowed :: State -> Direction -> State
+moveIfAllowed (State from _ boxes i) d
+  | (at to == Box) && (allowed $ at next) = (State to d moveBoxes i)
+  | allowed (at to) = (State to d boxes i)
+  | otherwise = (State from d boxes i)
+  where at = mazeWithBoxes (nth mazes i) boxes
+        to = adjacentCoord d from
+        next = adjacentCoord d to
+        moveBoxes = mapList (moveFromTo to next) boxes
+
+handleEvent :: Event -> State -> State
+handleEvent (KeyPress k) s@(State _ _ _ i)
+  | (isWon s && i < listLength mazes && k == " ") = initialState (1+ i)
+  | isWon s = s
+  | k == "Up"    = (moveIfAllowed s U)
+  | k == "Down"  = (moveIfAllowed s D)
+  | k == "Left"  = (moveIfAllowed s L)
+  | k == "Right" = (moveIfAllowed s R)
+handleEvent _ s = s
+
+-- Drawing
+
+wall, ground, storage, box :: Picture
+wall =    colored (grey 0.4) (solidRectangle 1 1)
+ground =  colored yellow     (solidRectangle 1 1)
+storage = colored white (solidCircle 0.3) & ground
+box =     colored brown      (solidRectangle 1 1)
+
+drawTile :: Tile -> Picture
+drawTile Wall    = wall
+drawTile Ground  = ground
+drawTile Storage = storage
+drawTile Box     = box
+drawTile Blank   = blank
+
+pictureOfMaze :: Maze -> Picture
+pictureOfMaze m = draw21times (\r -> draw21times (\c -> drawTileAt m (C r c)))
+
+draw21times :: (Integer -> Picture) -> Picture
+draw21times something = go (-10)
+  where
+    go :: Integer -> Picture
+    go 11 = blank
+    go n  = something n & go (n+1)
+
+drawTileAt :: Maze -> Coord -> Picture
+drawTileAt m c = atCoord c (drawTile $ noBoxMaze m c)
+
+
+atCoord :: Coord -> Picture -> Picture
+atCoord (C x y) pic = translated (fromIntegral x) (fromIntegral y) pic
+
+
+player :: Direction -> Picture
+player R = translated 0 0.3 cranium
+         & path [(0,0),(0.3,0.05)]
+         & path [(0,0),(0.3,-0.05)]
+         & path [(0,-0.2),(0,0.1)]
+         & path [(0,-0.2),(0.1,-0.5)]
+         & path [(0,-0.2),(-0.1,-0.5)]
+  where cranium = circle 0.18
+                & sector (7/6*pi) (1/6*pi) 0.18
+player L = scaled (-1) 1 (player R) -- Cunning!
+player U = translated 0 0.3 cranium
+         & path [(0,0),(0.3,0.05)]
+         & path [(0,0),(-0.3,0.05)]
+         & path [(0,-0.2),(0,0.1)]
+         & path [(0,-0.2),(0.1,-0.5)]
+         & path [(0,-0.2),(-0.1,-0.5)]
+  where cranium = solidCircle 0.18
+player D = translated 0 0.3 cranium
+         & path [(0,0),(0.3,-0.05)]
+         & path [(0,0),(-0.3,-0.05)]
+         & path [(0,-0.2),(0,0.1)]
+         & path [(0,-0.2),(0.1,-0.5)]
+         & path [(0,-0.2),(-0.1,-0.5)]
+  where cranium = circle 0.18
+                & translated   0.06  0.08 (solidCircle 0.04)
+                & translated (-0.06) 0.08 (solidCircle 0.04)
+
+pictureOfBoxes :: List Coord -> Picture
+pictureOfBoxes cs = combine (mapList (\c -> atCoord c (drawTile Box)) cs)
+
+draw :: State -> Picture
+draw s@(State c d boxes i)
+ | isWon s && i == listLength mazes = (text "You won!")
+ | isWon s                          = (text "Level done!")
+ | otherwise = atCoord c (player d)
+             & pictureOfBoxes boxes
+             & pictureOfMaze (nth mazes i)
+
+-- The complete interaction
+
+sokoban :: Interaction State
+sokoban = Interaction (initialState 1) (\_ c -> c) handleEvent draw
+
+-- The general interaction type
+
+data Interaction world = Interaction
+        world
+        (Double -> world -> world)
+        (Event -> world -> world)
+        (world -> Picture)
+
+
+runInteraction :: Interaction s -> IO ()
+runInteraction (Interaction state0 step handle drawf)
+  = interactionOf state0 step handle drawf
+
+-- Resetable interactions
+
+resetable :: Interaction s -> Interaction s
+resetable (Interaction state0 step handle drawf)
+  = Interaction state0 step handle' drawf
+  where handle' (KeyPress key) _ | key == "Esc" = state0
+        handle' e s = handle e s
+
+-- Start screen
+
+startScreen :: Picture
+startScreen = scaled 3 3 (text "Sokoban!")
+
+data SSState world = StartScreen | Running world
+
+withStartScreen :: Interaction s  -> Interaction (SSState s)
+withStartScreen (Interaction state0 step handle drawf)
+  = Interaction state0' step' handle' draw'
+  where
+    state0' = StartScreen
+
+    step' _ StartScreen = StartScreen
+    step' t (Running s) = Running (step t s)
+
+    handle' (KeyPress key) StartScreen | key == " " = Running state0
+    handle' _              StartScreen              = StartScreen
+    handle' e              (Running s)              = Running (handle e s)
+
+    draw' StartScreen = startScreen
+    draw' (Running s) = drawf s
+
+
+-- The main function
+
+main :: IO ()
+-- main = exercise3
+main = runInteraction (resetable $ withStartScreen sokoban)
