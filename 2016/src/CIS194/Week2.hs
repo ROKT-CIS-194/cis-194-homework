@@ -114,7 +114,7 @@ slerpDirection d1 d2 t = theta
 
 stepInput :: (Coord -> Tile) -> Event -> World -> World
 stepInput maze (KeyPress key) w
-  | moveTimeDiff >= 0.1 = w { playerCoord = (trace (pack (show c2)) c2)
+  | moveTimeDiff >= 0.1 = w { playerCoord = c2
                             , playerDirection = (fromMaybe d1 d2)
                             , lastPlayerDirection = d1
                             , lastPlayerCoord = c1
@@ -176,25 +176,17 @@ resetableInteractionOf
   -> (Event -> world -> world)
   -> (world -> Picture)
   -> IO ()
-resetableInteractionOf _ _ _ _ =
-  return ()
+resetableInteractionOf w stepTime stepInput output =
+  interactionOf w stepTime stepInput' output
+  where stepInput' (KeyPress k) _ | k == "Esc" = w
+        stepInput' e w = stepInput e w
 
 exercise3 :: IO ()
-exercise3 = resetableInteractionOf world0 stepTime stepInput output
+exercise3 = resetableInteractionOf world0 stepTime (stepInput maze1)
+            (output $ player)
   where
-    startCoord = C (-9) (-9)
-    world0 = initWorld startCoord
-
-
-    stepTime :: Double -> World -> World
-    stepTime _ = id
-
-    stepInput :: Event -> World -> World
-    stepInput _ = id
-
-    output :: World -> Picture
-    output _ = blank
-
+    startCoord = C (-3) (-3)
+    world0 = initWorld $ C (-3) 3
 
 -- #4 NEW LEVELS
 
