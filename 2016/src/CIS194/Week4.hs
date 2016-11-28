@@ -392,12 +392,12 @@ maze9'  c      = maze9 c
 
 -- The state
 
-data State = State { maze           :: (Coord -> Tile)
-                   , playerPos      :: Coord
-                   , playerDir      :: Direction
-                   , boxes          :: (List Coord)
-                   , remainingMazes :: (List Maze)
-                   , level          :: Integer
+data State = State { stateMaze           :: (Coord -> Tile)
+                   , statePlayerPos      :: Coord
+                   , statePlayerDir      :: Direction
+                   , stateBoxes          :: (List Coord)
+                   , stateRemainingMazes :: (List Maze)
+                   , stateLevel          :: Integer
                    }
 
 initialBoxes :: (Coord -> Tile) -> List Coord
@@ -411,28 +411,28 @@ noBoxMaze maze c = let m = maze c
 
 loadLevel :: Integer -> List Maze -> State
 loadLevel _ Empty = error "no more levels"
-loadLevel l (Entry (Maze start m) mazes) =
-  State { maze = m
-        , playerPos = start
-        , playerDir = R
-        , boxes = initialBoxes m
-        , remainingMazes = mazes
-        , level = l + 1
+loadLevel l (Entry (Maze start maze) ms) =
+  State { stateMaze = maze
+        , statePlayerPos = start
+        , statePlayerDir = R
+        , stateBoxes = initialBoxes maze
+        , stateRemainingMazes = ms
+        , stateLevel = l + 1
         }
 
 initialState :: List Maze -> State
-initialState mazes = loadLevel 0 mazes
+initialState ms = loadLevel 0 ms
 
 nextLevel :: State -> State
-nextLevel State { level = l, remainingMazes = mazes@(Entry _ _) } = loadLevel l mazes
+nextLevel State { stateLevel = l, stateRemainingMazes = ms@(Entry _ _) } = loadLevel l ms
 nextLevel s = s
 
 -- Event handling
 
 handleEvent :: Event -> State -> State
-handleEvent e s@State {maze = m, playerDir = dir, playerPos = pos, boxes = bs}
+handleEvent e s@State {stateMaze = maze, statePlayerDir = dir, statePlayerPos = pos, stateBoxes = bs}
   | isWon s   = if e == KeyPress " " then nextLevel s else s
-  | otherwise = s { playerDir = newDir, playerPos = newPos', boxes = newBs' }
+  | otherwise = s { statePlayerDir = newDir, statePlayerPos = newPos', stateBoxes = newBs' }
   where
     (newDir, moved) = case e of
       KeyPress "Up"    -> (U, True)
@@ -442,7 +442,7 @@ handleEvent e s@State {maze = m, playerDir = dir, playerPos = pos, boxes = bs}
       _                -> (dir, False)
     newPos = if moved then adjacentCoord newDir pos else pos
     newBs = mapList (\p -> if p == newPos then (adjacentCoord newDir p) else p) bs
-    (newPos', newBs') = if isValidMaze m newPos newBs then (newPos, newBs) else (pos, bs)
+    (newPos', newBs') = if isValidMaze maze newPos newBs then (newPos, newBs) else (pos, bs)
 
 isValidMaze :: (Coord -> Tile) -> Coord -> (List Coord) -> Bool
 isValidMaze m position boxes = go position boxes
@@ -463,7 +463,7 @@ isStorage :: (Coord -> Tile) -> Coord -> Bool
 isStorage m = (== Storage) . m
 
 isWon :: State -> Bool
-isWon State {maze = m, boxes = bs} = allList $ mapList (isStorage m) bs
+isWon State {stateMaze = maze, stateBoxes = bs} = allList $ mapList (isStorage maze) bs
 
 
 -- Drawing
@@ -530,9 +530,9 @@ pictureOfBoxes :: List Coord -> Picture
 pictureOfBoxes cs = combine (mapList (\c -> atCoord c (drawTile Box)) cs)
 
 draw :: State -> Picture
-draw s@(State {playerPos=pos, playerDir=dir, boxes=bs, maze=m})
+draw s@(State { statePlayerPos = pos, statePlayerDir = dir, stateBoxes = bs, stateMaze = maze })
   | isWon s   = scaled 3 3 (text "You won!")
-  | otherwise = (atCoord pos $ player dir) & pictureOfBoxes bs & pictureOfMaze m
+  | otherwise = (atCoord pos $ player dir) & pictureOfBoxes bs & pictureOfMaze maze
 
 -- The complete interaction
 
@@ -549,14 +549,14 @@ data Interaction world = Interaction
 
 
 runInteraction :: Interaction s -> IO ()
-runInteraction (Interaction state0 step handle draw)
-  = interactionOf state0 step handle draw
+runInteraction (Interaction state0 step handle d)
+  = interactionOf state0 step handle d
 
 -- Resetable interactions
 
 resetable :: Interaction s -> Interaction s
-resetable (Interaction state0 step handle draw)
-  = Interaction state0 step handle' draw
+resetable (Interaction state0 step handle d)
+  = Interaction state0 step handle' d
   where handle' (KeyPress key) _ | key == "Esc" = state0
         handle' e s = handle e s
 
@@ -568,8 +568,8 @@ startScreen = scaled 3 3 (text "Sokoban!")
 data SSState world = StartScreen | Running world
 
 withStartScreen :: Interaction s  -> Interaction (SSState s)
-withStartScreen (Interaction state0 step handle draw)
-  = Interaction state0' step' handle' draw'
+withStartScreen (Interaction state0 step handle d)
+  = Interaction state0' step' handle' d'
   where
     state0' = StartScreen
 
@@ -580,5 +580,5 @@ withStartScreen (Interaction state0 step handle draw)
     handle' _              StartScreen              = StartScreen
     handle' e              (Running s)              = Running (handle e s)
 
-    draw' StartScreen = startScreen
-    draw' (Running s) = draw s
+    d' StartScreen = startScreen
+    d' (Running s) = d s
