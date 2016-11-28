@@ -26,6 +26,24 @@ findList _ Empty = Nothing
 findList p (Entry x xs) | p x       = Just x
                         | otherwise = findList p xs
 
+containsList :: (a -> Bool) -> List a -> Bool
+containsList p xs = case (findList p xs) of
+  Just _  -> True
+  Nothing -> False
+
+hasDupes :: Eq a => List a -> Bool
+hasDupes Empty        = False
+hasDupes (Entry x xs) = go x xs
+  where go _ Empty        = False
+        go y (Entry z zs) | y == z                 = True
+                          | containsList (== y) zs = True
+                          | otherwise              = go z zs
+
+allList :: List Bool -> Bool
+allList Empty        = True
+allList (Entry x xs) | not x     = False
+                     | otherwise = allList xs
+
 -- Coordinates
 
 
@@ -44,9 +62,6 @@ allCoords = go Empty 10 10
               where go cs x y | x <= (-10) && y <= (-10) = (Entry (C x y) cs)
                               | x <= (-10)               = go (Entry (C x y) cs) 10 (y - 1)
                               | otherwise                = go (Entry (C x y) cs) (x - 1) y
-
-moveFromTo :: Coord -> Coord -> Coord -> Coord
-moveFromTo = undefined
 
 
 -- The maze
@@ -90,18 +105,54 @@ initialState = State { playerPos = case (filterList availableTile allCoords) of
                      , boxes = initialBoxes
                      }
                  where availableTile c = (notBox c) && (isGround c)
-                       notBox c        = findList (== c) initialBoxes == Nothing
+                       notBox c        = not (containsList (== c) initialBoxes)
                        isGround c      = (noBoxMaze c) == Ground
 
 -- Event handling
 
+move :: Coord -> Direction -> Coord
+move (C x y) dir = case dir of
+  U -> C x (y + 1)
+  D -> C x (y - 1)
+  L -> C (x - 1) y
+  R -> C (x + 1) y
+
 handleEvent :: Event -> State -> State
-handleEvent e s  = case e of
-                     KeyPress "Up"    -> s { playerDir = U }
-                     KeyPress "Down"  -> s { playerDir = D }
-                     KeyPress "Left"  -> s { playerDir = L }
-                     KeyPress "Right" -> s { playerDir = R }
-                     _                -> s
+handleEvent e s@State {playerDir = dir, playerPos = pos, boxes = bs}
+  | isWon s   = s
+  | otherwise = State { playerDir = newDir, playerPos = newPos', boxes = newBs' }
+  where
+    (newDir, moved) = case e of
+      KeyPress "Up"    -> (U, True)
+      KeyPress "Down"  -> (D, True)
+      KeyPress "Left"  -> (L, True)
+      KeyPress "Right" -> (R, True)
+      _                -> (dir, False)
+    newPos = if moved then move pos newDir else pos
+    newBs = mapList (\p -> if p == newPos then (move p newDir) else p) bs
+    (newPos', newBs') = if isValidMaze newPos newBs then (newPos, newBs) else (pos, bs)
+
+isValidMaze :: Coord -> (List Coord) -> Bool
+isValidMaze position boxes = go position boxes
+  where
+    go pos bs
+      | isBlankOrWall pos             = False
+      | containsList isBlankOrWall bs = False
+      | containsList (== pos) bs      = False
+      | hasDupes bs                   = False
+      | otherwise                     = True
+    isBlankOrWall c = case maze c of
+      Blank -> True
+      Wall  -> True
+      _     -> False
+
+
+isStorage :: Coord -> Bool
+isStorage c = maze c == Storage
+
+isWon :: State -> Bool
+isWon State {boxes = bs} = allList $ mapList isStorage bs
+
 
 -- Drawing
 
@@ -167,8 +218,9 @@ pictureOfBoxes :: List Coord -> Picture
 pictureOfBoxes cs = combine (mapList (\c -> atCoord c (drawTile Box)) cs)
 
 draw :: State -> Picture
-draw State {playerPos=pos, playerDir=dir, boxes=bs} = pl & pictureOfBoxes bs & pictureOfMaze
-  where pl = atCoord pos $ player dir
+draw s@(State {playerPos=pos, playerDir=dir, boxes=bs})
+  | isWon s   = scaled 3 3 (text "You won!")
+  | otherwise = (atCoord pos $ player dir) & pictureOfBoxes bs & pictureOfMaze
 
 -- The complete interaction
 
@@ -223,4 +275,4 @@ withStartScreen (Interaction state0 step handle draw)
 -- The main function
 
 main :: IO ()
-main = runInteraction sokoban
+main = runInteraction $ resetable sokoban
