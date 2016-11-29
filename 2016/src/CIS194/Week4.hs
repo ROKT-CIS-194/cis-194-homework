@@ -49,9 +49,7 @@ elemList :: Eq a => a -> List a -> Bool
 elemList x xs = any (== x) xs
 
 appendList :: List a -> List a -> List a
--- Why doesn't this work?
--- appendList = (foldr Entry) . flip
-appendList xs ys = foldr Entry ys xs
+appendList = flip (foldr Entry)
 
 listLength :: List a -> Integer
 listLength = foldl (\x _ -> x + 1) 0
