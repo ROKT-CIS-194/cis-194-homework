@@ -2,12 +2,19 @@
 
 module CIS194.Week5 where
 
+import Control.Applicative (liftA2, liftA3)
+import Data.Bool           (bool)
+import Data.Char           (isAscii, isControl, isDigit)
+import Data.Function       (on)
+import Data.List           (groupBy, inits, intercalate, nub, sort, tails)
+import Text.Printf         (printf)
+
 -- EXERCISE 1: LISTS, LISTS, LISTS
 
 -- | Halve Evens -- from a list of integers, remove any odd entry and halve
 -- every even entry.
 halveEvens :: [Integer] -> [Integer]
-halveEvens = undefined
+halveEvens = map (`div` 2) . filter even
 
 ex_halveEvens :: [Bool]
 ex_halveEvens =
@@ -20,7 +27,8 @@ ex_halveEvens =
 -- character or not an ASCII character by an underscore. Use the Data.Char
 -- module.
 safeString :: String -> String
-safeString = undefined
+safeString =
+  map (liftA3 bool (const '_') id (liftA2 (&&) isAscii (not . isControl)))
 
 ex_safeString :: [Bool]
 ex_safeString =
@@ -34,7 +42,7 @@ ex_safeString =
 -- that is obtained by the original list by removing one element, in order. (The
 -- examples might be more helpful).
 holes :: [a] -> [[a]]
-holes = undefined
+holes = zipWith (++) <$> inits <*> (tail . tails)
 
 ex_holes :: [Bool]
 ex_holes =
@@ -45,7 +53,9 @@ ex_holes =
 -- | Longest Text - given a non-empty list, find the entry for which show
 -- results the longest text shown.  If there are ties, prefer the last one.
 longestText :: Show a => [a] -> a
-longestText = undefined
+longestText = fst . foldr1 f . (zip <$> id <*> map (length . show))
+  where
+    f x@(_,xl) y@(_,yl) = if xl > yl then x else y
 
 ex_longestText :: [Bool]
 ex_longestText =
@@ -57,7 +67,7 @@ ex_longestText =
 
 -- | Adjacents - pair each element with the next one in the list.
 adjacents :: [a] -> [(a,a)]
-adjacents = undefined
+adjacents = zip <$> id <*> tail
 
 ex_adjacents :: [Bool]
 ex_adjacents =
@@ -68,7 +78,7 @@ ex_adjacents =
 
 -- | Commas - add commas between strings.
 commas :: [String] -> String
-commas = undefined
+commas = intercalate ", "
 
 ex_commas :: [Bool]
 ex_commas =
@@ -84,7 +94,7 @@ ex_commas =
 --
 -- You may assume that at least one polynomial is given.
 addPolynomials :: [[Integer]] -> [Integer]
-addPolynomials = undefined
+addPolynomials = foldr1 (zipWith (+))
 
 ex_addPolynomials :: [Bool]
 ex_addPolynomials =
@@ -98,7 +108,8 @@ ex_addPolynomials =
 -- i.e. one that is neither preceded nor followed by an integer. (The examples
 -- should provide more clarification.)
 sumNumbers :: String -> Integer
-sumNumbers = undefined
+sumNumbers =
+  sum . map read . filter (isDigit . head) . groupBy ((==) `on` isDigit)
 
 ex_sumNumbers :: [Bool]
 ex_sumNumbers =
@@ -113,18 +124,53 @@ ex_sumNumbers =
 -- EXERCISE 2: WORD COUNT
 
 wordCount :: String -> String
-wordCount = undefined
+wordCount = format <$> linesF <*> wordsF
+  where
+    linesF = ((,,) <$> length <*> (length . filter null) <*> longestF) . lines
+    wordsF = ((,,) <$> length <*> (length . nub . sort) <*> repeatsF) . words
+    longestF = maximum . map length
+    repeatsF = length . filter (uncurry (==)) . adjacents
+    format (nLines, nEmpty, longest) (nWords, nUnique, nRepeats) =
+      unlines
+        [ "Number of lines: " ++ show nLines
+        , "Number of empty lines: " ++ show nEmpty
+        , "Number of words: " ++ show nWords
+        , "Number of unique words: " ++ show nUnique
+        , "Number of words followed by themselves: " ++ show nRepeats
+        , "Length of the longest line: " ++ show longest
+        ]
 
 -- EXERCISE 3
 
 testResults :: [(String, [Bool])]
-testResults = []
+testResults =
+  [ ("halveEvens", ex_halveEvens)
+  , ("safeString", ex_safeString)
+  , ("holes", ex_holes)
+  , ("longestTest", ex_longestText)
+  , ("adjacents", ex_adjacents)
+  , ("commas", ex_commas)
+  , ("addPolynomials", ex_addPolynomials)
+  , ("sumNumbers", ex_sumNumbers)
+  ]
 
 formatTests :: [(String, [Bool])] -> String
-formatTests = undefined
+formatTests = unlines . map go
+  where
+    go (name, results) =
+      let n = length results
+          failed = map fst . filter (not . snd) $ zip [(1::Integer)..] results
+          failedStr = commas (map show failed)
+      in case (and results, length (filter id results)) of
+        (True, _) ->
+          printf "%s: %d/%d passed." name n n
+        (_, 0) ->
+          printf "%s: All %d failed." name n
+        (_, nPassed) ->
+          printf "%s: %d/%d passed. Failing tests %s." name nPassed failedStr
 
 -- MAIN
 
 main :: IO ()
-main = do
-  undefined
+main =
+  putStr (formatTests testResults)
