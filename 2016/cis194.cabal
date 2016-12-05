@@ -55,6 +55,7 @@ executable cis194
                        CIS194.Week2
                        CIS194.Week3
                        CIS194.Week4
+                       CIS194.Week5
 
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
