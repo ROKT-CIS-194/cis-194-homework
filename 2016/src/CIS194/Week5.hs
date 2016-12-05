@@ -1,13 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
+import Control.Monad
+import Data.Char
+import Data.Function
+import Data.List
+import Data.Ord
 
-module CIS194.Week5 where
+--module CIS194.Week5 where
 
 -- EXERCISE 1: LISTS, LISTS, LISTS
 
 -- | Halve Evens -- from a list of integers, remove any odd entry and halve
 -- every even entry.
 halveEvens :: [Integer] -> [Integer]
-halveEvens = undefined
+halveEvens = map (`div` 2) . filter even
 
 ex_halveEvens :: [Bool]
 ex_halveEvens =
@@ -20,7 +25,8 @@ ex_halveEvens =
 -- character or not an ASCII character by an underscore. Use the Data.Char
 -- module.
 safeString :: String -> String
-safeString = undefined
+safeString = map go
+  where go c = if (isControl c) || (not $ isAscii c) then '_' else c
 
 ex_safeString :: [Bool]
 ex_safeString =
@@ -34,7 +40,7 @@ ex_safeString =
 -- that is obtained by the original list by removing one element, in order. (The
 -- examples might be more helpful).
 holes :: [a] -> [[a]]
-holes = undefined
+holes as = zipWith (++) (init $ inits as) (tail $ tails as)
 
 ex_holes :: [Bool]
 ex_holes =
@@ -45,7 +51,7 @@ ex_holes =
 -- | Longest Text - given a non-empty list, find the entry for which show
 -- results the longest text shown.  If there are ties, prefer the last one.
 longestText :: Show a => [a] -> a
-longestText = undefined
+longestText = maximumBy $ comparing (length . show)
 
 ex_longestText :: [Bool]
 ex_longestText =
@@ -57,7 +63,7 @@ ex_longestText =
 
 -- | Adjacents - pair each element with the next one in the list.
 adjacents :: [a] -> [(a,a)]
-adjacents = undefined
+adjacents = ap zip tail
 
 ex_adjacents :: [Bool]
 ex_adjacents =
@@ -68,7 +74,7 @@ ex_adjacents =
 
 -- | Commas - add commas between strings.
 commas :: [String] -> String
-commas = undefined
+commas = intercalate ", "
 
 ex_commas :: [Bool]
 ex_commas =
@@ -84,7 +90,7 @@ ex_commas =
 --
 -- You may assume that at least one polynomial is given.
 addPolynomials :: [[Integer]] -> [Integer]
-addPolynomials = undefined
+addPolynomials = foldl1 $ zipWith (+)
 
 ex_addPolynomials :: [Bool]
 ex_addPolynomials =
@@ -98,7 +104,8 @@ ex_addPolynomials =
 -- i.e. one that is neither preceded nor followed by an integer. (The examples
 -- should provide more clarification.)
 sumNumbers :: String -> Integer
-sumNumbers = undefined
+sumNumbers = sum . (map read) . numericStrings
+  where numericStrings = filter (isDigit . head) . groupBy (\c1 c2 -> isDigit c1 == isDigit c2)
 
 ex_sumNumbers :: [Bool]
 ex_sumNumbers =
@@ -118,7 +125,16 @@ wordCount = undefined
 -- EXERCISE 3
 
 testResults :: [(String, [Bool])]
-testResults = []
+testResults = [ ("halveEvens",     ex_halveEvens)
+              , ("safeString",     ex_safeString)
+              , ("holes",          ex_holes)
+              , ("longestText",    ex_longestText)
+              , ("adjacents",      ex_adjacents)
+              , ("commas",         ex_commas)
+              , ("addPolynomials", ex_addPolynomials)
+              , ("sumNumbers",     ex_sumNumbers)
+              ]
+
 
 formatTests :: [(String, [Bool])] -> String
 formatTests = undefined
