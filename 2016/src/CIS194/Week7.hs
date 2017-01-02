@@ -6,63 +6,73 @@ import System.Random
 -- Exercise 1
 
 fib :: Integer -> Integer
-fib = undefined
+fib 0 = 1
+fib 1 = 1
+fib n = fib (n-1) + fib (n-2)
 
 fibs1 :: [Integer]
-fibs1 = undefined
+fibs1 = map fib [0..]
 
 fibs2 :: [Integer]
-fibs2 = undefined
+fibs2 = 1 : 1 : zipWith (+) fibs2 (tail fibs2)
 
 -- Exercise 2
 
 data Stream a = Cons a (Stream a)
 
 streamToList :: Stream a -> [a]
-streamToList = undefined
+streamToList (Cons x xs) = x:streamToList xs
 
 instance Show a => Show (Stream a) where
-    show = undefined
+  show = foldr p "..." . take 10 . streamToList
+    where
+      p x s = "Cons " ++ show x ++ " (" ++ s ++ ")"
 
 streamRepeat :: a -> Stream a
-streamRepeat = undefined
+streamRepeat x = Cons x (streamRepeat x)
 
 streamMap :: (a -> b) -> Stream a -> Stream b
-streamMap = undefined
+streamMap f (Cons x xs) = Cons (f x) (streamMap f xs)
 
 streamIterate :: (a -> a) -> a -> Stream a
-streamIterate = undefined
+streamIterate f x = Cons x (streamIterate f (f x))
 
 streamInterleave :: Stream a -> Stream a -> Stream a
-streamInterleave = undefined
+streamInterleave (Cons x xs) ys = Cons x (streamInterleave ys xs)
 
 nats :: Stream Integer
-nats = undefined
+nats = streamIterate (+1) 0
 
 ruler :: Stream Integer
-ruler = undefined
+ruler = foldr1 streamInterleave (map streamRepeat [0..])
 
 -- Exercise 3
 
 data Supply s a = S (Stream s -> (a, Stream s))
 
 get :: Supply s s
-get = undefined
+get = S $ \(Cons x xs) -> (x, xs)
 
 pureSupply :: a -> Supply s a
-pureSupply = undefined
+pureSupply x = S $ \xs -> (x, xs)
 
 mapSupply :: (a -> b) -> Supply s a -> Supply s b
-mapSupply = undefined
+mapSupply f (S k) = S $ \xs -> let (r, xs') = k xs in (f r, xs')
 
 mapSupply2 :: (a -> b -> c) -> Supply s a -> Supply s b -> Supply s c
-mapSupply2 = undefined
+mapSupply2 f (S k1) (S k2) = S $ \xs ->
+  let (r1, xs') = k1 xs
+      (r2, xs'') = k2 xs'
+  in (f r1 r2, xs'')
 
 bindSupply :: Supply s a -> (a -> Supply s b) -> Supply s b
-bindSupply = undefined
+bindSupply (S k1) f = S $ \xs ->
+  let (r, xs') = k1 xs
+      S k2 = f r
+  in k2 xs'
 
 runSupply :: Stream s -> Supply s a -> a
-runSupply = undefined
+runSupply xs (S k) = fst (k xs)
 
 instance Functor (Supply s) where
     fmap = mapSupply
@@ -78,7 +88,10 @@ instance Monad (Supply s) where
 data Tree a = Node (Tree a) (Tree a) | Leaf a deriving Show
 
 labelTree :: Tree a -> Tree Integer
-labelTree = undefined
+labelTree = runSupply nats . go
+  where
+    go (Leaf _) = Leaf <$> get
+    go (Node l r) = Node <$> go l <*> go r
 
 -- Non-Exercise
 
