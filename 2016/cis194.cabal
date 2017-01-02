@@ -68,6 +68,7 @@ executable cis194
                      , codeworld-api
                      , lens
                      , mtl
+                     , random
                      , transformers
 
   -- Directories containing source files.
