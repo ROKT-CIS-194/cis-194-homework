@@ -65,6 +65,7 @@ executable cis194
                      , HUnit
                      , QuickCheck
                      , codeworld-api
+                     , random
 
   -- Directories containing source files.
   hs-source-dirs:      src
