@@ -191,7 +191,41 @@ type Section = (Identifer, [Declaration])
 type INIFile = [Section]
 
 parseINI :: Parser INIFile
-parseINI = undefined
+parseINI = many1 section
+  where section = do
+                    char '['
+                    title <- identifier
+                    char ']'
+                    newLine
+                    body <- sectionBody
+                    return (title, catMaybes body)
+        identifier = many1 letterOrDigit
+        sectionBody = many line
+        line = declaration `orElse` emptyLine `orElse` commentLine
+        declaration = do
+                        i <- identifier
+                        spaces
+                        char '='
+                        spaces
+                        val <- many1 notNewLine
+                        newLine
+                        return $ Just (i, val)
+        commentLine = do
+                        char '#'
+                        many notNewLine
+                        newLine
+                        return Nothing
+        emptyLine = do
+                      newLine
+                      return Nothing
+        --
+        many1 p = (:) <$> p <*> many p
+        letterOrDigit = do
+                          c <- anyChar
+                          if isAlphaNum c then return c else noParser
+        newLine = char '\n'
+        notNewLine = anyCharBut '\n'
+        spaces = many (char ' ')
 
 main :: IO ()
 main = do
