@@ -1,5 +1,7 @@
 module CIS194.Week8 where
 
+import Control.Applicative ((<|>))
+import Control.Monad (liftM2)
 import Data.Char
 import Data.Maybe
 
@@ -111,48 +113,65 @@ func10' xs = (\x -> (x*x) + 10) <$> xs
 
 -- Exercise 3
 
-data Parser a = P ()
+data Parser a = P (String -> Maybe (a, String))
 
 runParser :: Parser t -> String -> Maybe (t, String)
-runParser (P p) = undefined
+runParser (P p) = p
 
 parse :: Parser a -> String -> Maybe a
-parse = undefined
+parse p s = case runParser p s of
+    Just (result, "") -> Just result
+    _ -> Nothing
 
 noParser :: Parser a
-noParser = undefined
+noParser = P (\_ -> Nothing)
 
 pureParser :: a -> Parser a
-pureParser = undefined
+pureParser x = P (\s -> Just (x, s))
 
 instance Functor Parser where
-    fmap = undefined
+    fmap f p = P (fmap (\(x,s) -> (f x, s)) . runParser p)
 
 instance Applicative Parser where
     pure = pureParser
-    fp <*> fx = undefined
+    ff <*> fx = P (\input ->
+                    do
+                      (f, input')  <- runParser ff input
+                      (x, input'') <- runParser fx input'
+                      return (f x, input''))
 
 instance Monad Parser where
     return = pureParser
-    fa >>= k = undefined
+    fx >>= k = P (\input ->
+                   do
+                     (x, input') <- runParser fx input
+                     runParser (k x) input')
 
 anyChar :: Parser Char
-anyChar = undefined
+anyChar = P (\input -> case input of
+                         (c:cs) -> Just (c, cs)
+                         [] -> Nothing)
 
 char :: Char -> Parser ()
-char = undefined
+char c = do
+           c' <- anyChar
+           if c == c' then return () else noParser
 
 anyCharBut :: Char -> Parser Char
-anyCharBut = undefined
+anyCharBut c = do
+                 c' <- anyChar
+                 if c == c' then noParser else return c'
 
 orElse :: Parser a -> Parser a -> Parser a
-orElse = undefined
+orElse (P p1) (P p2) = P (liftM2 (<|>) p1 p2)
 
 many :: Parser a -> Parser [a]
-many = undefined
+many p = orElse (pure (:) <*> p <*> many p)
+                (pure [])
 
 sepBy :: Parser a -> Parser () -> Parser [a]
-sepBy = undefined
+sepBy p sep = orElse (pure (:) <*> p <*> (many (sep *> p)))
+                     (pure [])
 
 parseCSV :: Parser [[String]]
 parseCSV = many parseLine
