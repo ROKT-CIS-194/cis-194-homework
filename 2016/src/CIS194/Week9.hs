@@ -11,7 +11,72 @@ import Prelude hiding (exp)
 -- Exercise 1
 
 parseBNF :: Descr f => f BNF
-parseBNF = undefined
+parseBNF = pBNF
+
+-- identifier = letter, {letter | digit | '-'};
+pIdentifier :: Descr f => f String
+pIdentifier = nonTerminal "identifier" $
+  (:) <$> letter <*> many (letter `orElse` digit `orElse` ('-' <$ char '-'))
+
+-- quoted-char = non-quote-or-backslash | '\\', '\\' | '\\', '\'';
+pQuotedChar :: Descr f => f Char
+pQuotedChar = nonTerminal "quoted-char" $
+  notQuoteOrBackslash `orElse` f '\\' `orElse` f '\''
+  where f c = c <$ char '\\' <* char c
+
+-- terminal = '\'', {quoted-char}, '\'', spaces;
+pTerminal :: Descr f => f RHS
+pTerminal = nonTerminal "terminal" $
+  Terminal <$> (char '\'' *> many pQuotedChar <* char '\'' <* spaces)
+
+-- non-terminal = identifier, spaces;
+pNonTerminal :: Descr f => f RHS
+pNonTerminal = nonTerminal "non-terminal" $
+  NonTerminal <$> pIdentifier <* spaces
+
+-- option = '[', spaces, rhs, spaces, ']', spaces;
+pOption :: Descr f => f RHS -> f RHS
+pOption rhs = nonTerminal "option" $
+  Optional <$> (char '[' *> spaces *> rhs <* spaces <* char ']') <* spaces
+
+-- repetition = '{', spaces, rhs, spaces, '}', spaces;
+pRepetition :: Descr f => f RHS -> f RHS
+pRepetition rhs = nonTerminal "repetition" $
+  Repetition <$> (char '{' *> spaces *> rhs <* spaces  <* char '}') <* spaces
+
+-- group = '(', spaces, rhs, spaces, ')', spaces;
+pGroup :: Descr f => f RHS -> f RHS
+pGroup rhs = nonTerminal "group" $
+  char '(' *> spaces *> rhs <* spaces <* char ')' <* spaces
+
+-- atom = terminal | non-terminal | option | repetition | group;
+pAtom :: Descr f => f RHS -> f RHS
+pAtom rhs = nonTerminal "atom" $
+  foldr1 orElse [pTerminal, pNonTerminal, pOption rhs, pRepetition rhs, pGroup rhs]
+
+-- sequence = atom, {spaces, ',', spaces, atom}, spaces;
+pSequence :: Descr f => f RHS -> f RHS
+pSequence rhs = nonTerminal "sequence" $
+  mkSequences <$> pAtom rhs <*> many (spaces *> char ',' *> spaces *> pAtom rhs) <* spaces
+
+-- choice = sequence, {spaces, '|', spaces, sequence}, spaces;
+pChoice :: Descr f => f RHS -> f RHS
+pChoice rhs = nonTerminal "choice" $
+  mkChoices <$> pSequence rhs <*> many (spaces *> char '|' *> spaces *> pSequence rhs) <* spaces
+
+-- rhs = choice;
+pRHS :: Descr f => f RHS
+pRHS = recNonTerminal "rhs" $ pChoice
+
+-- production = identifier, spaces, '=', spaces, rhs, ';', spaces;
+pProduction :: Descr f => f Production
+pProduction = nonTerminal "production" $
+  (,) <$> pIdentifier <*> (spaces *> char '=' *> spaces *> pRHS <* char ';' <* spaces)
+
+-- bnf = production, {production};
+pBNF :: Descr f => f BNF
+pBNF = nonTerminal "bnf" $
+  (:) <$> pProduction <*> many pProduction
 
 -- Example: Simple expressions
 
