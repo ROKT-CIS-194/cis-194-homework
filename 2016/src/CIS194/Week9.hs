@@ -35,38 +35,38 @@ pNonTerminal = nonTerminal "non-terminal" $
   NonTerminal <$> pIdentifier <* spaces
 
 -- option = '[', spaces, rhs, spaces, ']', spaces;
-pOption :: Descr f => f RHS -> f RHS
-pOption rhs = nonTerminal "option" $
-  Optional <$> (char '[' *> spaces *> rhs <* spaces <* char ']') <* spaces
+pOption :: Descr f => f RHS
+pOption = nonTerminal "option" $
+  Optional <$> (char '[' *> spaces *> pRHS <* spaces <* char ']') <* spaces
 
 -- repetition = '{', spaces, rhs, spaces, '}', spaces;
-pRepetition :: Descr f => f RHS -> f RHS
-pRepetition rhs = nonTerminal "repetition" $
-  Repetition <$> (char '{' *> spaces *> rhs <* spaces  <* char '}') <* spaces
+pRepetition :: Descr f => f RHS
+pRepetition = nonTerminal "repetition" $
+  Repetition <$> (char '{' *> spaces *> pRHS <* spaces  <* char '}') <* spaces
 
 -- group = '(', spaces, rhs, spaces, ')', spaces;
-pGroup :: Descr f => f RHS -> f RHS
-pGroup rhs = nonTerminal "group" $
-  char '(' *> spaces *> rhs <* spaces <* char ')' <* spaces
+pGroup :: Descr f => f RHS
+pGroup = nonTerminal "group" $
+  char '(' *> spaces *> pRHS <* spaces <* char ')' <* spaces
 
 -- atom = terminal | non-terminal | option | repetition | group;
-pAtom :: Descr f => f RHS -> f RHS
-pAtom rhs = nonTerminal "atom" $
-  foldr1 orElse [pTerminal, pNonTerminal, pOption rhs, pRepetition rhs, pGroup rhs]
+pAtom :: Descr f => f RHS
+pAtom = nonTerminal "atom" $
+  foldr1 orElse [pTerminal, pNonTerminal, pOption, pRepetition, pGroup]
 
 -- sequence = atom, {spaces, ',', spaces, atom}, spaces;
-pSequence :: Descr f => f RHS -> f RHS
-pSequence rhs = nonTerminal "sequence" $
-  mkSequences <$> pAtom rhs <*> many (spaces *> char ',' *> spaces *> pAtom rhs) <* spaces
+pSequence :: Descr f => f RHS
+pSequence = nonTerminal "sequence" $
+  mkSequences <$> pAtom <*> many (spaces *> char ',' *> spaces *> pAtom) <* spaces
 
 -- choice = sequence, {spaces, '|', spaces, sequence}, spaces;
-pChoice :: Descr f => f RHS -> f RHS
-pChoice rhs = nonTerminal "choice" $
-  mkChoices <$> pSequence rhs <*> many (spaces *> char '|' *> spaces *> pSequence rhs) <* spaces
+pChoice :: Descr f => f RHS
+pChoice = nonTerminal "choice" $
+  mkChoices <$> pSequence <*> many (spaces *> char '|' *> spaces *> pSequence) <* spaces
 
 -- rhs = choice;
 pRHS :: Descr f => f RHS
-pRHS = recNonTerminal "rhs" $ pChoice
+pRHS = nonTerminal "rhs" $ pChoice
 
 -- production = identifier, spaces, '=', spaces, rhs, ';', spaces;
 pProduction :: Descr f => f Production
@@ -90,24 +90,23 @@ mkMult :: Expr -> [Expr] -> Expr
 mkMult = foldl Mult
 
 parseExpr :: Descr f => f Expr
-parseExpr = recNonTerminal "expr" $ \exp ->
-  ePlus exp
+parseExpr = nonTerminal "expr" $ ePlus
 
-ePlus :: Descr f => f Expr -> f Expr
-ePlus exp = nonTerminal "plus" $
-  mkPlus <$> eMult exp
-         <*> many (spaces *>  char '+' *>  spaces *> eMult exp)
+ePlus :: Descr f => f Expr
+ePlus = nonTerminal "plus" $
+  mkPlus <$> eMult
+         <*> many (spaces *>  char '+' *>  spaces *> eMult)
          <*  spaces
 
-eMult :: Descr f => f Expr -> f Expr
-eMult exp = nonTerminal "mult" $
-  mkPlus <$> eAtom exp
-         <*> many (spaces *>  char '*' *>  spaces *> eAtom exp)
+eMult :: Descr f => f Expr
+eMult = nonTerminal "mult" $
+  mkPlus <$> eAtom
+         <*> many (spaces *>  char '*' *>  spaces *> eAtom)
          <*  spaces
 
-eAtom :: Descr f => f Expr -> f Expr
-eAtom exp = nonTerminal "atom" $
-  aConst `orElse` eParens exp
+eAtom :: Descr f => f Expr
+eAtom = nonTerminal "atom" $
+  aConst `orElse` eParens parseExpr
 
 aConst :: Descr f => f Expr
 aConst = nonTerminal "const" $ Const . read <$> many1 digit
@@ -236,44 +235,50 @@ many1P p = pure (:) <*> p <*> manyP p
 sepByP :: Parser a -> Parser () -> Parser [a]
 sepByP p1 p2 = ((:) <$> p1 <*> (manyP (p2 >> p1))) `orElseP` return []
 
+nonTerminalP :: String -> Parser a -> Parser a
+nonTerminalP _ p = let r = const p r in r
+
 -- A grammar-producing type constructor
 
-newtype Grammar a = G (BNF, RHS)
+newtype Grammar a = G ([String] -> (BNF, RHS))
 
 runGrammar :: String -> Grammar a -> BNF
-runGrammar str (G (prods, NonTerminal nt)) | str == nt = prods
-runGrammar str (G (prods, rhs)) = prods ++ [(str, rhs)]
+runGrammar str (G f) = case f [] of
+  (prods, NonTerminal nt) | str == nt -> prods
+  (prods, rhs) -> prods ++ [(str, rhs)]
 
 ppGrammar :: String -> Grammar a -> String
 ppGrammar str g = ppBNF $ runGrammar str g
 
 charG :: Char -> Grammar ()
-charG c = G (([], Terminal [c]))
+charG c = G $ \_ -> ([], Terminal [c])
 
 anyCharG :: Grammar Char
-anyCharG = G ([], NonTerminal "char")
+anyCharG = G $ \_ -> ([], NonTerminal "char")
 
 manyG :: Grammar a -> Grammar [a]
-manyG (G (prods, rhs)) = G (prods, Repetition rhs)
+manyG (G f) = G $ fmap Repetition . f
 
 mergeProds :: [Production] -> [Production] -> [Production]
 mergeProds prods1 prods2 = nub $ prods1 ++ prods2
 
 orElseG :: Grammar a -> Grammar a -> Grammar a
-orElseG (G (prods1, rhs1)) (G (prods2, rhs2)) =
-  G (mergeProds prods1 prods2, Choice rhs1 rhs2)
+orElseG (G f) (G g) = G $ \seen -> case (f seen, g seen) of
+  ((prods1, rhs1), (prods2, rhs2)) ->
+    (mergeProds prods1 prods2, Choice rhs1 rhs2)
 
 instance Functor Grammar where
   fmap _ (G bnf) = G bnf
 
 instance Applicative Grammar where
-  pure _ = G ([], Terminal "")
-  G (prods1, Terminal "") <*> G (prods2, rhs2) =
-    G (mergeProds prods1 prods2, rhs2)
-  G (prods1, rhs1) <*> G (prods2, Terminal "") =
-    G (mergeProds prods1 prods2, rhs1)
-  G (prods1, rhs1) <*> G (prods2, rhs2) =
-    G (mergeProds prods1 prods2, Sequence rhs1 rhs2)
+  pure _ = G $ \_ -> ([], Terminal "")
+  G f <*> G g = G $ \seen -> case (f seen, g seen) of
+    ((prods1, Terminal ""), (prods2, rhs2)) ->
+      (mergeProds prods1 prods2, rhs2)
+    ((prods1, rhs1), (prods2, Terminal "")) ->
+      (mergeProds prods1 prods2, rhs1)
+    ((prods1, rhs1), (prods2, rhs2)) ->
+      (mergeProds prods1 prods2, Sequence rhs1 rhs2)
 
 many1G :: Grammar a -> Grammar [a]
 many1G p = pure (:) <*> p <*> manyG p
@@ -282,15 +287,17 @@ sepByG :: Grammar a -> Grammar () -> Grammar [a]
 sepByG p1 p2 = ((:) <$> p1 <*> (manyG (p2 *> p1))) `orElseG` pure []
 
 primitiveG :: String -> Grammar a
-primitiveG s = G ([], NonTerminal s)
+primitiveG s = G $ \_ -> ([], NonTerminal s)
 
 newlineG :: Grammar ()
 newlineG = primitiveG "newline"
 
-recNonTerminalG :: String -> (Grammar a -> Grammar a) -> Grammar a
-recNonTerminalG name f =
-  let G (prods, rhs) = f (G ([], NonTerminal name))
-  in G (prods ++ [(name, rhs)], NonTerminal name)
+nonTerminalG :: String -> Grammar a -> Grammar a
+nonTerminalG name (G g) = G $ \seen ->
+    if name `elem` seen
+    then ([], NonTerminal name)
+    else let (prods, rhs) = g (name : seen)
+         in (prods ++ [(name, rhs)], NonTerminal name)
 
 
 
@@ -301,21 +308,21 @@ class Applicative f => Descr f where
   many :: f a -> f [a]
   orElse :: f a -> f a -> f a
   primitive :: String -> Parser a -> f a
-  recNonTerminal :: String -> (f a -> f a) -> f a
+  nonTerminal :: String -> f a -> f a
 
 instance Descr Parser where
   char = charP
   many = manyP
   orElse = orElseP
   primitive _ p = p
-  recNonTerminal _ p = let r = p r in r
+  nonTerminal = nonTerminalP
 
 instance Descr Grammar where
   char = charG
   many = manyG
   orElse = orElseG
   primitive s _ = primitiveG s
-  recNonTerminal = recNonTerminalG
+  nonTerminal = nonTerminalG
 
 many1 :: Descr f => f a -> f [a]
 many1 p = pure (:) <*> p <*> many p
@@ -325,9 +332,6 @@ sepBy p1 p2 = ((:) <$> p1 <*> (many (p2 *> p1))) `orElse` pure []
 
 newline :: Descr f => f ()
 newline = primitive "newline" (charP '\n')
-
-nonTerminal :: Descr f => String -> f a -> f a
-nonTerminal name p = recNonTerminal name (const p)
 
 anyChar :: Descr f => f Char
 anyChar = primitive "char" anyCharP
